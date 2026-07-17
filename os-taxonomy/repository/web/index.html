@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="中国小学一至六年级交互式课程知识图谱" />
+    <title>小数探客 · 知识宇宙</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <a class="brand" href="#" aria-label="小数探课知识宇宙首页">
+          <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span><strong>小数探客</strong><small>知识宇宙</small></span>
+        </a>
+
+        <div class="search-wrap">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m21 21-4.35-4.35m2.1-5.4a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0Z"/></svg>
+          <input id="searchInput" type="search" placeholder="搜索知识点，例如：分数、古诗、光……" autocomplete="off" />
+          <kbd>Ctrl K</kbd>
+          <div id="searchResults" class="search-results" hidden></div>
+        </div>
+
+        <button id="resetView" class="icon-button" type="button" title="重置视角" aria-label="重置视角">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.8 7.7A8 8 0 1 1 4 13m.8-5.3V3.8m0 3.9h3.9"/></svg>
+        </button>
+      </header>
+
+      <main class="workspace">
+        <section class="graph-stage" aria-label="课程知识图谱">
+          <canvas id="graphCanvas"></canvas>
+
+          <div class="filter-bar" aria-label="知识图谱筛选">
+            <div class="filter-group" id="gradeFilters">
+              <span class="filter-label">年级</span>
+              <button class="chip is-active" data-grade="all" type="button">全部</button>
+              <button class="chip" data-grade="1" type="button">一</button>
+              <button class="chip" data-grade="2" type="button">二</button>
+              <button class="chip" data-grade="3" type="button">三</button>
+              <button class="chip" data-grade="4" type="button">四</button>
+              <button class="chip" data-grade="5" type="button">五</button>
+              <button class="chip" data-grade="6" type="button">六</button>
+            </div>
+            <div class="divider"></div>
+            <label class="select-wrap">
+              <span class="sr-only">选择学科</span>
+              <select id="subjectFilter">
+                <option value="all">全部学科</option>
+                <option value="语文">语文</option>
+                <option value="数学">数学</option>
+                <option value="英语">英语</option>
+                <option value="科学">科学</option>
+              </select>
+              <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m8 10 4 4 4-4"/></svg>
+            </label>
+          </div>
+
+          <div class="stage-copy">
+            <p id="stageEyebrow">中国小学课程 · 试验图谱</p>
+            <h1 id="stageTitle">从一个知识点，看见整条学习路径</h1>
+            <p id="stageHint">拖拽旋转 · 滚轮缩放 · 点击节点追踪前置与后续</p>
+          </div>
+
+          <div class="legend" aria-label="学科图例">
+            <strong>学科</strong>
+            <button data-subject="语文" type="button"><i style="--dot: var(--chinese)"></i>语文</button>
+            <button data-subject="数学" type="button"><i style="--dot: var(--math)"></i>数学</button>
+            <button data-subject="英语" type="button"><i style="--dot: var(--english)"></i>英语</button>
+            <button data-subject="科学" type="button"><i style="--dot: var(--science)"></i>科学</button>
+          </div>
+
+          <div class="graph-stats" aria-live="polite">
+            <span><b id="visibleCount">0</b> 个知识点</span>
+            <span><b id="edgeCount">0</b> 条学习关系</span>
+          </div>
+
+          <div class="canvas-controls" aria-label="图谱视角控制">
+            <button id="zoomIn" type="button" aria-label="放大">+</button>
+            <button id="zoomOut" type="button" aria-label="缩小">−</button>
+          </div>
+
+          <div id="tooltip" class="node-tooltip" hidden></div>
+        </section>
+
+        <aside id="detailPanel" class="detail-panel" aria-label="知识点详情">
+          <div class="empty-detail" id="emptyDetail">
+            <div class="orbit-icon" aria-hidden="true"><span></span><i></i><b></b></div>
+            <h2>选择一个知识点</h2>
+            <p>点击图中的任意节点，查看它的学习目标、前置基础和接下来会解锁的内容。</p>
+            <div class="detail-tip"><span>小提示</span>颜色代表学科，高度代表年级。</div>
+          </div>
+
+          <div id="nodeDetail" class="node-detail" hidden>
+            <div class="detail-head">
+              <button id="closeDetail" class="close-button" type="button" aria-label="关闭详情">×</button>
+              <div class="topic-meta"><span id="detailSubject"></span><span id="detailGrade"></span></div>
+              <h2 id="detailName"></h2>
+              <p id="detailDomain"></p>
+            </div>
+            <div class="detail-body">
+              <section>
+                <h3>这个知识点讲什么</h3>
+                <p id="detailDescription"></p>
+              </section>
+              <section>
+                <h3>掌握的表现</h3>
+                <ul id="detailEvidence"></ul>
+              </section>
+              <section class="relation-section">
+                <h3>学习路径</h3>
+                <div class="relation-block">
+                  <span>需要先会</span>
+                  <div id="prerequisites" class="relation-list"></div>
+                </div>
+                <div class="relation-block">
+                  <span>接下来解锁</span>
+                  <div id="unlocks" class="relation-list"></div>
+                </div>
+              </section>
+            </div>
+          </div>
+        </aside>
+      </main>
+    </div>
+
+    <script src="data-cn.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
