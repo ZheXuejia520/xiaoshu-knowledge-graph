@@ -8,6 +8,7 @@
   const searchInput = document.querySelector("#searchInput");
   const searchResults = document.querySelector("#searchResults");
   const subjectFilter = document.querySelector("#subjectFilter");
+  const playPathBtn = document.querySelector("#playPath");
   const byId = new Map(topics.map(topic => [topic.id, topic]));
   const prefersReducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -17,8 +18,8 @@
   }[subject]).trim();
 
   const state = {
-    grade: "all",
-    subject: "all",
+    grade: "1-3",
+    subject: "数学",
     rotationX: -0.18,
     rotationY: -0.38,
     zoom: 1,
@@ -30,32 +31,56 @@
     lastY: 0,
     projected: [],
     visibleIds: new Set(),
-    time: 0
+    time: 0,
+    animationFrame: 0,
+    isAnimating: false,
+    animatedEdges: new Map(),
+    autoRotate: true,
+    playingPath: false,
+    playIndex: 0,
+    playTopics: [],
+    searchedId: null
   };
 
-  const backgroundStars = Array.from({ length: 200 }, (_, i) => ({
+  const backgroundStars = Array.from({ length: 350 }, (_, i) => ({
     x: Math.random() * 1000,
     y: Math.random() * 600,
-    size: Math.random() * 2.5 + 0.5,
-    twinkleSpeed: Math.random() * 0.02 + 0.005,
+    size: Math.random() * 3 + 0.3,
+    twinkleSpeed: Math.random() * 0.03 + 0.003,
     twinklePhase: Math.random() * Math.PI * 2,
-    brightness: Math.random() * 0.5 + 0.3
+    brightness: Math.random() * 0.6 + 0.2,
+    type: Math.random() > 0.85 ? 'bright' : Math.random() > 0.95 ? 'super' : 'normal'
+  }));
+
+  const shootingStars = [];
+  
+  const spaceDust = Array.from({ length: 150 }, () => ({
+    x: Math.random() * 1000,
+    y: Math.random() * 600,
+    size: Math.random() * 1.5 + 0.2,
+    speedX: (Math.random() - 0.5) * 0.15,
+    speedY: (Math.random() - 0.5) * 0.15,
+    opacity: Math.random() * 0.4 + 0.1,
+    color: Math.random() > 0.5 ? 'rgba(180, 190, 255,' : 'rgba(200, 180, 255,'
   }));
 
   const nebulas = [
-    { x: 200, y: 150, radius: 350, r: 80, g: 60, b: 140, speedX: 0.08, speedY: 0.05, opacity: 0.35 },
-    { x: 700, y: 400, radius: 400, r: 70, g: 70, b: 130, speedX: -0.06, speedY: 0.03, opacity: 0.30 },
-    { x: 450, y: 300, radius: 320, r: 75, g: 65, b: 135, speedX: 0.04, speedY: -0.04, opacity: 0.28 },
-    { x: 100, y: 450, radius: 280, r: 65, g: 75, b: 125, speedX: 0.03, speedY: 0.06, opacity: 0.25 },
-    { x: 800, y: 180, radius: 280, r: 78, g: 62, b: 138, speedX: -0.05, speedY: -0.03, opacity: 0.27 },
-    { x: 550, y: 500, radius: 250, r: 62, g: 72, b: 122, speedX: 0.07, speedY: 0.02, opacity: 0.22 }
+    { x: 200, y: 150, radius: 400, r: 90, g: 50, b: 150, speedX: 0.06, speedY: 0.04, opacity: 0.38 },
+    { x: 700, y: 400, radius: 450, r: 60, g: 80, b: 140, speedX: -0.05, speedY: 0.03, opacity: 0.32 },
+    { x: 450, y: 300, radius: 380, r: 80, g: 55, b: 145, speedX: 0.03, speedY: -0.03, opacity: 0.30 },
+    { x: 100, y: 450, radius: 320, r: 50, g: 90, b: 130, speedX: 0.02, speedY: 0.05, opacity: 0.28 },
+    { x: 800, y: 180, radius: 320, r: 85, g: 45, b: 155, speedX: -0.04, speedY: -0.02, opacity: 0.29 },
+    { x: 550, y: 500, radius: 280, r: 55, g: 85, b: 125, speedX: 0.06, speedY: 0.02, opacity: 0.24 },
+    { x: 300, y: 480, radius: 250, r: 70, g: 70, b: 160, speedX: 0.02, speedY: -0.03, opacity: 0.22 },
+    { x: 750, y: 120, radius: 260, r: 95, g: 40, b: 140, speedX: -0.03, speedY: 0.04, opacity: 0.26 }
   ];
 
   const nodes = topics.map((topic, index) => {
     const s = subjectOrder.indexOf(topic.subject);
     const subjectAngle = s / subjectOrder.length * Math.PI * 2;
     const gradeAngle = (topic.grade - 1) * 0.73;
-    const within = topics.filter(t => t.subject === topic.subject && t.grade === topic.grade).findIndex(t => t.id === topic.id);
+    const inferredOrder = topics.filter(t => t.subject === topic.subject && t.grade === topic.grade).findIndex(t => t.id === topic.id);
+    const within = Number.isFinite(topic.order) ? topic.order - 1 : inferredOrder;
     const radius = 115 + topic.grade * 29 + within * 13;
     const angle = subjectAngle + gradeAngle + within * 0.46;
     return {
@@ -79,8 +104,11 @@
   }
 
   function filtered(topic) {
-    return (state.grade === "all" || String(topic.grade) === state.grade) &&
-      (state.subject === "all" || topic.subject === state.subject);
+    const gradeMatch = state.grade === "all" || 
+      String(topic.grade) === state.grade ||
+      (state.grade === "1-3" && topic.grade >= 1 && topic.grade <= 3);
+    const subjectMatch = state.subject === "all" || topic.subject === state.subject;
+    return gradeMatch && subjectMatch;
   }
 
   function rotate(node) {
@@ -142,15 +170,50 @@
   function drawBackgroundStars(width, height) {
     drawNebula(width, height);
     
+    spaceDust.forEach(dust => {
+      dust.x += dust.speedX;
+      dust.y += dust.speedY;
+      
+      if (dust.x < 0) dust.x = width;
+      if (dust.x > width) dust.x = 0;
+      if (dust.y < 0) dust.y = height;
+      if (dust.y > height) dust.y = 0;
+      
+      ctx.beginPath();
+      ctx.arc(dust.x, dust.y, dust.size, 0, Math.PI * 2);
+      ctx.fillStyle = dust.color + dust.opacity + ')';
+      ctx.fill();
+    });
+    
     backgroundStars.forEach(star => {
       const twinkle = Math.sin(state.time * star.twinkleSpeed + star.twinklePhase);
       const alpha = star.brightness + twinkle * 0.2;
       const x = star.x % width;
       const y = star.y % height;
       
+      if (star.type === 'super') {
+        const glowPulse = Math.sin(state.time * 0.008) * 0.3 + 0.7;
+        ctx.beginPath();
+        ctx.arc(x, y, star.size * 4, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255, 255, 240, ${0.15 * glowPulse})`;
+        ctx.fill();
+        
+        ctx.beginPath();
+        ctx.arc(x, y, star.size * 2, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255, 255, 240, ${0.3 * glowPulse})`;
+        ctx.fill();
+      } else if (star.type === 'bright') {
+        ctx.beginPath();
+        ctx.arc(x, y, star.size * 3, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(200, 220, 255, ${0.1})`;
+        ctx.fill();
+      }
+      
       ctx.beginPath();
       ctx.arc(x, y, star.size, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(255, 255, 255, ${Math.max(0.1, Math.min(0.8, alpha))})`;
+      ctx.fillStyle = star.type === 'super' ? `rgba(255, 255, 240, ${Math.max(0.3, Math.min(1, alpha))})` :
+                      star.type === 'bright' ? `rgba(200, 220, 255, ${Math.max(0.2, Math.min(0.9, alpha))})` :
+                      `rgba(255, 255, 255, ${Math.max(0.1, Math.min(0.8, alpha))})`;
       ctx.fill();
       
       if (star.size > 1.5) {
@@ -163,6 +226,54 @@
         ctx.fill();
       }
     });
+    
+    if (Math.random() < 0.002) {
+      shootingStars.push({
+        x: Math.random() * width,
+        y: Math.random() * height * 0.3,
+        length: Math.random() * 80 + 40,
+        angle: Math.PI / 4 + (Math.random() - 0.5) * 0.5,
+        speed: Math.random() * 8 + 6,
+        opacity: 1,
+        life: 1
+      });
+    }
+    
+    for (let i = shootingStars.length - 1; i >= 0; i--) {
+      const star = shootingStars[i];
+      star.x += Math.cos(star.angle) * star.speed;
+      star.y += Math.sin(star.angle) * star.speed;
+      star.life -= 0.03;
+      star.opacity = star.life;
+      
+      if (star.life <= 0 || star.x > width || star.y > height) {
+        shootingStars.splice(i, 1);
+        continue;
+      }
+      
+      const gradient = ctx.createLinearGradient(
+        star.x - Math.cos(star.angle) * star.length * star.life,
+        star.y - Math.sin(star.angle) * star.length * star.life,
+        star.x,
+        star.y
+      );
+      gradient.addColorStop(0, 'rgba(255, 255, 255, 0)');
+      gradient.addColorStop(0.7, `rgba(200, 220, 255, ${star.opacity * 0.6})`);
+      gradient.addColorStop(1, `rgba(255, 255, 255, ${star.opacity})`);
+      
+      ctx.beginPath();
+      ctx.moveTo(star.x - Math.cos(star.angle) * star.length * star.life, star.y - Math.sin(star.angle) * star.length * star.life);
+      ctx.lineTo(star.x, star.y);
+      ctx.strokeStyle = gradient;
+      ctx.lineWidth = 2;
+      ctx.lineCap = 'round';
+      ctx.stroke();
+      
+      ctx.beginPath();
+      ctx.arc(star.x, star.y, 2 * star.life, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(255, 255, 255, ${star.opacity})`;
+      ctx.fill();
+    }
   }
 
   function drawStarShape(ctx, x, y, radius, spikes, color, alpha) {
@@ -211,32 +322,80 @@
       const a = projectedById.get(edge.prerequisiteId);
       const b = projectedById.get(edge.topicId);
       if (!a || !b) return;
-      const isRelated = related && related.all.has(a.id) && related.all.has(b.id);
+      const edgeKey = `${edge.prerequisiteId}-${edge.topicId}`;
+      const isRelated = related && (related.all.has(a.id) || related.all.has(b.id));
       const dim = related && !isRelated;
       const edgeColor = cssColor(byId.get(edge.topicId).subject);
       
-      ctx.beginPath();
-      ctx.moveTo(a.sx, a.sy);
       const mx = (a.sx + b.sx) / 2 + (a.depth - b.depth) * .025;
       const my = (a.sy + b.sy) / 2 - 4;
-      ctx.quadraticCurveTo(mx, my, b.sx, b.sy);
       
-      if (isRelated) {
-        ctx.strokeStyle = `color-mix(in oklch, ${edgeColor} 70%, white)`;
-        ctx.lineWidth = 1.8;
+      let progress = -1;
+      if (state.isAnimating && isRelated) {
+        const anim = state.animatedEdges.get(edgeKey);
+        if (anim) {
+          const totalTime = state.animationFrame * 16;
+          const elapsed = totalTime - anim.delay;
+          if (elapsed > 0) {
+            progress = Math.min(1, elapsed / anim.duration);
+            progress = progress < 0.5 ? 2 * progress * progress : -1 + (4 - 2 * progress) * progress;
+          } else {
+            progress = 0;
+          }
+        }
+      } else if (state.animatedEdges.has(edgeKey)) {
+        progress = 1;
+      }
+      
+      if (progress < 0) return;
+    
+      ctx.beginPath();
+      ctx.moveTo(a.sx, a.sy);
+      if (progress < 1) {
+        const t = progress;
+        const px = (1 - t) * (1 - t) * a.sx + 2 * (1 - t) * t * mx + t * t * b.sx;
+        const py = (1 - t) * (1 - t) * a.sy + 2 * (1 - t) * t * my + t * t * b.sy;
+        ctx.quadraticCurveTo(mx, my, px, py);
+        
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 2;
         ctx.stroke();
         
-        const glowGradient = ctx.createLinearGradient(a.sx, a.sy, b.sx, b.sy);
-        glowGradient.addColorStop(0, `color-mix(in oklch, ${edgeColor} 40%, transparent)`);
-        glowGradient.addColorStop(0.5, `color-mix(in oklch, ${edgeColor} 25%, transparent)`);
-        glowGradient.addColorStop(1, `color-mix(in oklch, ${edgeColor} 40%, transparent)`);
-        ctx.strokeStyle = glowGradient;
-        ctx.lineWidth = 6;
-        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(px, py, 4, 0, Math.PI * 2);
+        ctx.fillStyle = "#ffffff";
+        ctx.fill();
+        
+        const headGlow = ctx.createRadialGradient(px, py, 0, px, py, 15);
+        headGlow.addColorStop(0, "rgba(255, 255, 255, 0.8)");
+        headGlow.addColorStop(0.5, "rgba(200, 220, 255, 0.3)");
+        headGlow.addColorStop(1, "transparent");
+        ctx.beginPath();
+        ctx.arc(px, py, 15, 0, Math.PI * 2);
+        ctx.fillStyle = headGlow;
+        ctx.fill();
       } else {
-        ctx.strokeStyle = dim ? `rgba(80, 90, 110, 0.08)` : `rgba(100, 115, 140, 0.18)`;
-        ctx.lineWidth = 0.8;
-        ctx.stroke();
+        ctx.quadraticCurveTo(mx, my, b.sx, b.sy);
+        
+        if (isRelated) {
+          ctx.strokeStyle = `color-mix(in oklch, ${edgeColor} 70%, white)`;
+          ctx.lineWidth = edge.type === "recommended" ? 1.5 : 2;
+          ctx.setLineDash(edge.type === "recommended" ? [6, 4] : []);
+          ctx.stroke();
+          
+          const glowGradient = ctx.createLinearGradient(a.sx, a.sy, b.sx, b.sy);
+          glowGradient.addColorStop(0, `color-mix(in oklch, ${edgeColor} 40%, transparent)`);
+          glowGradient.addColorStop(0.5, `color-mix(in oklch, ${edgeColor} 25%, transparent)`);
+          glowGradient.addColorStop(1, `color-mix(in oklch, ${edgeColor} 40%, transparent)`);
+          ctx.strokeStyle = glowGradient;
+          ctx.lineWidth = 6;
+          ctx.stroke();
+        } else {
+          ctx.strokeStyle = dim ? `rgba(80, 90, 110, 0)` : `rgba(100, 115, 140, 0)`;
+          ctx.lineWidth = 0;
+          ctx.setLineDash([]);
+          ctx.stroke();
+        }
       }
     });
     ctx.restore();
@@ -253,7 +412,33 @@
       const pulsePhase = state.time * 0.003 + node.id.charCodeAt(0) * 0.05;
       const pulseScale = 1 + Math.sin(pulsePhase) * 0.15;
       
-      const glowIntensity = isSelected ? 1.6 : isHovered ? 1.3 : 1;
+      let nodeProgress = 1;
+      if (state.isAnimating && state.selected && node.id !== state.selected) {
+        const related = getRelated(state.selected);
+        if (related && related.all.has(node.id)) {
+          let nodeIndex = -1;
+          const edgeKeys = Array.from(state.animatedEdges.keys());
+          edgeKeys.forEach((key, index) => {
+            if (key.includes(node.id)) {
+              nodeIndex = index;
+            }
+          });
+          if (nodeIndex >= 0) {
+            const totalTime = state.animationFrame * 16;
+            const delay = state.animatedEdges.get(edgeKeys[nodeIndex])?.delay || 0;
+            const elapsed = totalTime - delay + 300;
+            if (elapsed > 0) {
+              nodeProgress = Math.min(1, elapsed / 500);
+            } else {
+              nodeProgress = 0;
+            }
+          }
+        }
+      }
+      
+      const isSearched = state.searchedId === node.id;
+      const searchPulse = isSearched ? 1 + Math.sin(state.time * 0.015) * 0.4 : 1;
+      const glowIntensity = isSelected ? 1.6 : isHovered ? 1.3 : isSearched ? 1.5 * searchPulse : isRelated ? 1.2 * nodeProgress : 1;
       const glowRadius = node.radius * 3.2 * glowIntensity * pulseScale;
       
       const gradient = ctx.createRadialGradient(node.sx, node.sy, node.radius * 0.6, node.sx, node.sy, glowRadius);
@@ -267,7 +452,7 @@
       ctx.fillStyle = gradient;
       ctx.fill();
       
-      const starRadius = node.radius * (isSelected ? 1.3 : isHovered ? 1.15 : 1);
+      const starRadius = node.radius * (isSelected ? 1.3 : isHovered ? 1.15 : isRelated ? 1.1 * nodeProgress : 1);
       const starSpikes = isSelected ? 6 : 5;
       
       ctx.shadowColor = color;
@@ -275,7 +460,8 @@
       ctx.shadowOffsetX = 0;
       ctx.shadowOffsetY = 0;
       
-      drawStarShape(ctx, node.sx, node.sy, starRadius, starSpikes, `color-mix(in oklch, ${color} 90%, white)`, node.alpha);
+      const nodeAlpha = isRelated ? node.alpha * (0.5 + 0.5 * nodeProgress) : node.alpha;
+      drawStarShape(ctx, node.sx, node.sy, starRadius, starSpikes, `color-mix(in oklch, ${color} 90%, white)`, nodeAlpha);
       
       ctx.shadowBlur = 0;
       
@@ -316,6 +502,32 @@
     const topic = byId.get(id);
     if (!topic) return;
     state.selected = id;
+    state.animatedEdges.clear();
+    
+    const related = getRelated(id);
+    if (related) {
+      const allRelatedEdges = dependencies.filter(edge => 
+        related.all.has(edge.prerequisiteId) && related.all.has(edge.topicId)
+      );
+      
+      allRelatedEdges.sort((a, b) => {
+        const gradeA = byId.get(a.topicId)?.grade || 0;
+        const gradeB = byId.get(b.topicId)?.grade || 0;
+        return gradeA - gradeB;
+      });
+      
+      allRelatedEdges.forEach((edge, index) => {
+        const edgeKey = `${edge.prerequisiteId}-${edge.topicId}`;
+        state.animatedEdges.set(edgeKey, {
+          delay: index * 300,
+          duration: 800
+        });
+      });
+    }
+    
+    state.animationFrame = 0;
+    state.isAnimating = true;
+    
     if (!filtered(topic)) {
       state.grade = "all";
       state.subject = "all";
@@ -352,10 +564,32 @@
     document.querySelector("#detailSubject").textContent = topic.subject;
     document.querySelector("#detailGrade").textContent = `${topic.grade}年级`;
     document.querySelector("#detailName").textContent = topic.name;
-    document.querySelector("#detailDomain").textContent = topic.domain;
+    document.querySelector("#detailDomain").textContent = topic.source ? `${topic.domain} · 来源：${topic.source}` : topic.domain;
     document.querySelector("#detailDescription").textContent = topic.description;
+    
+    const examples = document.querySelector("#detailExamples");
+    examples.innerHTML = (topic.examples && topic.examples.length > 0) 
+      ? topic.examples.map((ex, i) => `
+        <div class="example-item">
+          <span class="example-number">例${i + 1}</span>
+          <div class="example-content">${ex}</div>
+        </div>
+      `).join("")
+      : '<p class="empty-text">暂无示例</p>';
+    
+    const tips = document.querySelector("#detailTips");
+    tips.innerHTML = (topic.tips && topic.tips.length > 0)
+      ? topic.tips.map(tip => `<li>💡 ${tip}</li>`).join("")
+      : '<li class="empty-text">暂无学习技巧</li>';
+    
+    const mistakes = document.querySelector("#detailCommonMistakes");
+    mistakes.innerHTML = (topic.commonMistakes && topic.commonMistakes.length > 0)
+      ? topic.commonMistakes.map(mistake => `<li>❌ ${mistake}</li>`).join("")
+      : '<li class="empty-text">暂无常见错误提示</li>';
+    
     const evidence = document.querySelector("#detailEvidence");
-    evidence.innerHTML = topic.evidence.map(item => `<li>${item}</li>`).join("");
+    evidence.innerHTML = topic.evidence.map(item => `<li>✅ ${item}</li>`).join("");
+    
     const related = getRelated(topic.id);
     renderRelations(document.querySelector("#prerequisites"), related.incoming);
     renderRelations(document.querySelector("#unlocks"), related.outgoing);
@@ -364,6 +598,10 @@
 
   function clearSelection() {
     state.selected = null;
+    state.searchedId = null;
+    state.isAnimating = false;
+    state.animationFrame = 0;
+    state.animatedEdges.clear();
     detailPanel.classList.remove("is-open");
     document.querySelector("#emptyDetail").hidden = false;
     document.querySelector("#nodeDetail").hidden = true;
@@ -374,7 +612,8 @@
     document.querySelectorAll("#gradeFilters .chip").forEach(button => button.classList.toggle("is-active", button.dataset.grade === state.grade));
     subjectFilter.value = state.subject;
     document.querySelectorAll(".legend button").forEach(button => button.classList.toggle("is-muted", state.subject !== "all" && button.dataset.subject !== state.subject));
-    document.querySelector("#stageEyebrow").textContent = `${state.grade === "all" ? "一至六年级" : `${state.grade}年级`} · ${state.subject === "all" ? "中国小学课程" : state.subject}`;
+    const gradeText = state.grade === "all" ? "一至六年级" : state.grade === "1-3" ? "一至三年级" : `${state.grade}年级`;
+    document.querySelector("#stageEyebrow").textContent = `${gradeText} · ${state.subject === "all" ? "中国小学课程" : state.subject}`;
     draw();
   }
 
@@ -448,7 +687,10 @@
   });
   searchResults.addEventListener("click", event => {
     const button = event.target.closest("[data-id]");
-    if (button) selectTopic(button.dataset.id);
+    if (button) {
+      state.searchedId = button.dataset.id;
+      selectTopic(button.dataset.id);
+    }
   });
   document.addEventListener("click", event => {
     if (!event.target.closest(".search-wrap")) searchResults.hidden = true;
@@ -471,15 +713,61 @@
   });
   document.querySelector("#closeDetail").addEventListener("click", clearSelection);
 
+  playPathBtn.addEventListener("click", () => {
+    if (state.playingPath) {
+      state.playingPath = false;
+      playPathBtn.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>';
+      return;
+    }
+    
+    state.playTopics = topics
+      .filter(t => t.subject === "数学" && t.grade >= 1 && t.grade <= 6)
+      .sort((a, b) => a.grade - b.grade || (a.order || 0) - (b.order || 0));
+    
+    if (state.playTopics.length === 0) {
+      state.playTopics = topics
+        .filter(t => t.subject === "数学")
+        .sort((a, b) => a.grade - b.grade || (a.order || 0) - (b.order || 0));
+    }
+    
+    state.playingPath = true;
+    state.playIndex = 0;
+    playPathBtn.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>';
+  });
+
   new ResizeObserver(resize).observe(stage);
   syncFilters();
   
   function animate() {
     state.time += 16;
+    if (state.isAnimating) {
+      state.animationFrame++;
+      const maxDelay = Array.from(state.animatedEdges.values())
+        .reduce((max, anim) => Math.max(max, anim.delay + anim.duration), 0);
+      if (state.animationFrame * 16 >= maxDelay + 500) {
+        state.isAnimating = false;
+      }
+    }
+    if (state.playingPath) {
+      const interval = 2500;
+      const elapsed = state.time % interval;
+      if (elapsed < 100 && state.playIndex < state.playTopics.length) {
+        const topic = state.playTopics[state.playIndex];
+        if (topic) {
+          selectTopic(topic.id);
+          state.playIndex++;
+        }
+      } else if (state.playIndex >= state.playTopics.length) {
+        state.playingPath = false;
+        playPathBtn.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>';
+      }
+    }
+    if (state.autoRotate && !state.dragging) {
+      state.rotationY += 0.0015;
+      state.rotationX = -0.18 + Math.sin(state.time * 0.0005) * 0.1;
+    }
     draw();
     requestAnimationFrame(animate);
   }
-  if (!prefersReducedMotion) {
-    animate();
-  }
+  animate();
 })();

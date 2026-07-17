@@ -18,10 +18,12 @@
         <div class="search-wrap">
           <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m21 21-4.35-4.35m2.1-5.4a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0Z"/></svg>
           <input id="searchInput" type="search" placeholder="搜索知识点，例如：分数、古诗、光……" autocomplete="off" />
-          <kbd>Ctrl K</kbd>
           <div id="searchResults" class="search-results" hidden></div>
         </div>
 
+        <button id="playPath" class="icon-button" type="button" title="从一年级开始播放" aria-label="从一年级开始播放">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+        </button>
         <button id="resetView" class="icon-button" type="button" title="重置视角" aria-label="重置视角">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.8 7.7A8 8 0 1 1 4 13m.8-5.3V3.8m0 3.9h3.9"/></svg>
         </button>
@@ -34,7 +36,8 @@
           <div class="filter-bar" aria-label="知识图谱筛选">
             <div class="filter-group" id="gradeFilters">
               <span class="filter-label">年级</span>
-              <button class="chip is-active" data-grade="all" type="button">全部</button>
+              <button class="chip" data-grade="all" type="button">全部</button>
+              <button class="chip" data-grade="1-3" type="button">1-3</button>
               <button class="chip" data-grade="1" type="button">一</button>
               <button class="chip" data-grade="2" type="button">二</button>
               <button class="chip" data-grade="3" type="button">三</button>
@@ -104,7 +107,19 @@
                 <p id="detailDescription"></p>
               </section>
               <section>
-                <h3>掌握的表现</h3>
+                <h3>举个例子</h3>
+                <div id="detailExamples" class="examples-list"></div>
+              </section>
+              <section>
+                <h3> 学习小窍门</h3>
+                <ul id="detailTips"></ul>
+              </section>
+              <section>
+                <h3>容易错的地方</h3>
+                <ul id="detailCommonMistakes"></ul>
+              </section>
+              <section>
+                <h3> 掌握的表现</h3>
                 <ul id="detailEvidence"></ul>
               </section>
               <section class="relation-section">
