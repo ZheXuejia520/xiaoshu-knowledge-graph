@@ -39,13 +39,14 @@
     playingPath: false,
     playIndex: 0,
     playTopics: [],
-    searchedId: null
+    searchedId: null,
+    entranceStart: performance.now()
   };
 
-  const backgroundStars = Array.from({ length: 350 }, (_, i) => ({
+  const backgroundStars = Array.from({ length: 110 }, () => ({
     x: Math.random() * 1000,
     y: Math.random() * 600,
-    size: Math.random() * 3 + 0.3,
+    size: Math.random() * 1.4 + 0.25,
     twinkleSpeed: Math.random() * 0.03 + 0.003,
     twinklePhase: Math.random() * Math.PI * 2,
     brightness: Math.random() * 0.6 + 0.2,
@@ -54,7 +55,7 @@
 
   const shootingStars = [];
   
-  const spaceDust = Array.from({ length: 150 }, () => ({
+  const spaceDust = Array.from({ length: 48 }, () => ({
     x: Math.random() * 1000,
     y: Math.random() * 600,
     size: Math.random() * 1.5 + 0.2,
@@ -64,16 +65,127 @@
     color: Math.random() > 0.5 ? 'rgba(180, 190, 255,' : 'rgba(200, 180, 255,'
   }));
 
-  const nebulas = [
-    { x: 200, y: 150, radius: 400, r: 90, g: 50, b: 150, speedX: 0.06, speedY: 0.04, opacity: 0.38 },
-    { x: 700, y: 400, radius: 450, r: 60, g: 80, b: 140, speedX: -0.05, speedY: 0.03, opacity: 0.32 },
-    { x: 450, y: 300, radius: 380, r: 80, g: 55, b: 145, speedX: 0.03, speedY: -0.03, opacity: 0.30 },
-    { x: 100, y: 450, radius: 320, r: 50, g: 90, b: 130, speedX: 0.02, speedY: 0.05, opacity: 0.28 },
-    { x: 800, y: 180, radius: 320, r: 85, g: 45, b: 155, speedX: -0.04, speedY: -0.02, opacity: 0.29 },
-    { x: 550, y: 500, radius: 280, r: 55, g: 85, b: 125, speedX: 0.06, speedY: 0.02, opacity: 0.24 },
-    { x: 300, y: 480, radius: 250, r: 70, g: 70, b: 160, speedX: 0.02, speedY: -0.03, opacity: 0.22 },
-    { x: 750, y: 120, radius: 260, r: 95, g: 40, b: 140, speedX: -0.03, speedY: 0.04, opacity: 0.26 }
+  const galaxyConfig = {
+    centerX: 500, centerY: 300,
+    rotation: 0,
+    rotationSpeed: 0.00015,
+    armCount: 4,
+    armTightness: 0.018,
+    coreRadius: 60,
+    galaxyRadius: 580
+  };
+
+  // 生成螺旋臂粒子
+  const galaxyParticles = [];
+  const armColors = [
+    [
+      { r: 255, g: 210, b: 180 }, { r: 240, g: 140, b: 130 },
+      { r: 200, g: 90, b: 140 }, { r: 140, g: 120, b: 200 }, { r: 80, g: 150, b: 220 }
+    ],
+    [
+      { r: 255, g: 200, b: 170 }, { r: 230, g: 130, b: 120 },
+      { r: 190, g: 100, b: 150 }, { r: 130, g: 130, b: 210 }, { r: 90, g: 160, b: 210 }
+    ],
+    [
+      { r: 250, g: 215, b: 185 }, { r: 235, g: 145, b: 135 },
+      { r: 210, g: 85, b: 135 }, { r: 150, g: 110, b: 190 }, { r: 70, g: 140, b: 230 }
+    ],
+    [
+      { r: 255, g: 205, b: 175 }, { r: 225, g: 135, b: 125 },
+      { r: 195, g: 95, b: 145 }, { r: 135, g: 125, b: 205 }, { r: 85, g: 155, b: 215 }
+    ]
   ];
+
+  for (let arm = 0; arm < galaxyConfig.armCount; arm++) {
+    const armAngle = (arm / galaxyConfig.armCount) * Math.PI * 2;
+    const perArm = 140;
+    for (let i = 0; i < perArm; i++) {
+      const t = (i / perArm) * 0.95 + Math.random() * 0.05;
+      const r = galaxyConfig.coreRadius * 0.6 + t * galaxyConfig.galaxyRadius;
+      const spiralAngle = armAngle + r * galaxyConfig.armTightness;
+      const spread = (1 - t) * 8 + t * 55 + Math.random() * 20;
+      const perpAngle = spiralAngle + Math.PI / 2;
+      const scatterX = (Math.random() - 0.5) * spread * 2;
+      const scatterY = (Math.random() - 0.5) * spread * 2;
+      const x = Math.cos(spiralAngle) * r + Math.cos(perpAngle) * scatterX;
+      const y = Math.sin(spiralAngle) * r + Math.sin(perpAngle) * scatterY;
+      const colorIdx = Math.min(4, Math.floor(t * 5));
+      const colorT = t * 5 - colorIdx;
+      const c0 = armColors[arm][colorIdx];
+      const c1 = armColors[arm][Math.min(4, colorIdx + 1)];
+      const color = {
+        r: Math.round(c0.r + (c1.r - c0.r) * colorT),
+        g: Math.round(c0.g + (c1.g - c0.g) * colorT),
+        b: Math.round(c0.b + (c1.b - c0.b) * colorT)
+      };
+      galaxyParticles.push({
+        x, y, r, baseAngle: spiralAngle,
+        size: 1.5 + (1 - t) * 10 + Math.random() * 8,
+        opacity: 0.04 + (1 - t) * 0.10 + Math.random() * 0.05,
+        color
+      });
+    }
+  }
+
+  // 尘埃带粒子
+  const dustLanes = [];
+  for (let lane = 0; lane < galaxyConfig.armCount; lane++) {
+    const laneAngle = (lane / galaxyConfig.armCount) * Math.PI * 2 + Math.PI / galaxyConfig.armCount;
+    for (let i = 0; i < 60; i++) {
+      const t = 0.1 + Math.random() * 0.8;
+      const r = galaxyConfig.coreRadius * 0.5 + t * galaxyConfig.galaxyRadius * 0.85;
+      const spread = 25 + t * 40;
+      const angle = laneAngle + r * galaxyConfig.armTightness + (Math.random() - 0.5) * 0.5;
+      const x = Math.cos(angle) * r + (Math.random() - 0.5) * spread;
+      const y = Math.sin(angle) * r + (Math.random() - 0.5) * spread;
+      dustLanes.push({
+        x, y, r, baseAngle: angle,
+        size: 3 + Math.random() * 12,
+        opacity: 0.03 + Math.random() * 0.08
+      });
+    }
+  }
+
+  // 晕轮粒子
+  const haloParticles = [];
+  for (let i = 0; i < 200; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const r = galaxyConfig.coreRadius * 0.5 + Math.random() * galaxyConfig.galaxyRadius * 1.1;
+    const x = Math.cos(angle) * r + (Math.random() - 0.5) * 80;
+    const y = Math.sin(angle) * r + (Math.random() - 0.5) * 80;
+    haloParticles.push({
+      x, y, r, baseAngle: angle,
+      size: 2 + Math.random() * 6,
+      opacity: 0.01 + Math.random() * 0.04,
+      color: Math.random() > 0.5 ? { r: 140, g: 160, b: 220 } : { r: 180, g: 140, b: 200 }
+    });
+  }
+
+  // 四角不规则星云粒子
+  const cornerNebulaParticles = [];
+  const corners = [
+    { cx: 0, cy: 0, angleRange: [0.3, 1.2], cr: 0, cg: 60, cb: 140 },
+    { cx: 1, cy: 0, angleRange: [1.9, 2.8], cr: 80, cg: 40, cb: 120 },
+    { cx: 0, cy: 1, angleRange: [4.5, 5.4], cr: 50, cg: 70, cb: 150 },
+    { cx: 1, cy: 1, angleRange: [3.8, 4.9], cr: 90, cg: 50, cb: 130 }
+  ];
+  corners.forEach(corner => {
+    for (let i = 0; i < 45; i++) {
+      const angle = corner.angleRange[0] + Math.random() * (corner.angleRange[1] - corner.angleRange[0]);
+      const dist = 0.15 + Math.random() * 0.55;
+      const x = corner.cx + Math.cos(angle) * dist;
+      const y = corner.cy + Math.sin(angle) * dist;
+      const colorVar = Math.random() * 30 - 15;
+      cornerNebulaParticles.push({
+        x, y, dist,
+        size: 6 + Math.random() * 18,
+        opacity: 0.015 + Math.random() * 0.04,
+        cr: Math.max(0, Math.min(255, corner.cr + colorVar)),
+        cg: Math.max(0, Math.min(255, corner.cg + colorVar)),
+        cb: Math.max(0, Math.min(255, corner.cb + colorVar))
+      });
+    }
+  });
 
   const nodes = topics.map((topic, index) => {
     const s = subjectOrder.indexOf(topic.subject);
@@ -88,7 +200,7 @@
       x: Math.cos(angle) * radius,
       z: Math.sin(angle) * radius,
       y: (3.5 - topic.grade) * 78 + Math.sin(index * 1.9) * 18,
-      baseRadius: 4.4 + topic.grade * 0.3
+      baseRadius: 5.5 + topic.grade * 0.4
     };
   });
 
@@ -130,7 +242,7 @@
       sx: width * .5 + p.x * scale,
       sy: height * .53 + p.y * scale,
       depth: p.z,
-      radius: Math.max(2.4, node.baseRadius * scale),
+      radius: Math.max(3.8, node.baseRadius * scale * 1.2),
       alpha: Math.max(.3, Math.min(1, .72 - p.z / 1250))
     };
   }
@@ -141,35 +253,128 @@
     return { incoming, outgoing, all: new Set([id, ...incoming, ...outgoing]) };
   }
 
-  function drawNebula(width, height) {
-    nebulas.forEach(nebula => {
-      nebula.x += nebula.speedX;
-      nebula.y += nebula.speedY;
-      
-      if (nebula.x < -nebula.radius) nebula.x = width + nebula.radius;
-      if (nebula.x > width + nebula.radius) nebula.x = -nebula.radius;
-      if (nebula.y < -nebula.radius) nebula.y = height + nebula.radius;
-      if (nebula.y > height + nebula.radius) nebula.y = -nebula.radius;
-      
-      const pulse = Math.sin(state.time * 0.001 + nebula.x * 0.001) * 0.3 + 0.7;
-      const alpha = nebula.opacity * pulse;
-      
-      const gradient = ctx.createRadialGradient(nebula.x, nebula.y, 0, nebula.x, nebula.y, nebula.radius);
-      gradient.addColorStop(0, `rgba(${nebula.r}, ${nebula.g}, ${nebula.b}, ${alpha})`);
-      gradient.addColorStop(0.4, `rgba(${nebula.r}, ${nebula.g}, ${nebula.b}, ${alpha * 0.6})`);
-      gradient.addColorStop(0.7, `rgba(${nebula.r}, ${nebula.g}, ${nebula.b}, ${alpha * 0.25})`);
-      gradient.addColorStop(1, "rgba(0, 0, 0, 0)");
-      
+  function drawGalaxy(width, height) {
+    const cx = width * 0.5;
+    const cy = height * 0.5;
+    const scale = Math.min(width, height) / 650;
+    const coreR = galaxyConfig.coreRadius * scale;
+    const galR = galaxyConfig.galaxyRadius * scale;
+    
+    galaxyConfig.rotation += galaxyConfig.rotationSpeed;
+    const rot = galaxyConfig.rotation;
+    const cosR = Math.cos(rot), sinR = Math.sin(rot);
+    
+    // 1. 外层大椭圆晕轮
+    const haloGrad = ctx.createRadialGradient(cx, cy, coreR * 0.5, cx, cy, galR * 1.2);
+    haloGrad.addColorStop(0, 'rgba(140, 120, 180, 0.04)');
+    haloGrad.addColorStop(0.5, 'rgba(100, 130, 180, 0.02)');
+    haloGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, galR * 1.2, galR * 0.5, 0, 0, Math.PI * 2);
+    ctx.fillStyle = haloGrad;
+    ctx.fill();
+    
+    // 2. 银盘椭圆基底
+    const diskGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, galR);
+    diskGrad.addColorStop(0, 'rgba(180, 150, 200, 0.06)');
+    diskGrad.addColorStop(0.3, 'rgba(120, 100, 160, 0.03)');
+    diskGrad.addColorStop(0.6, 'rgba(80, 100, 140, 0.015)');
+    diskGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, galR, galR * 0.35, 0, 0, Math.PI * 2);
+    ctx.fillStyle = diskGrad;
+    ctx.fill();
+    
+    // 3. 四角星云粒子
+    cornerNebulaParticles.forEach(p => {
+      const px = p.x * width;
+      const py = p.y * height;
+      const pulse = Math.sin(state.time * 0.0005 + p.dist * 3) * 0.25 + 0.75;
+      const alpha = p.opacity * pulse;
+      const grad = ctx.createRadialGradient(px, py, 0, px, py, p.size);
+      grad.addColorStop(0, `rgba(${p.cr}, ${p.cg}, ${p.cb}, ${alpha})`);
+      grad.addColorStop(0.6, `rgba(${p.cr}, ${p.cg}, ${p.cb}, ${alpha * 0.3})`);
+      grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
       ctx.beginPath();
-      ctx.arc(nebula.x, nebula.y, nebula.radius, 0, Math.PI * 2);
-      ctx.fillStyle = gradient;
+      ctx.arc(px, py, p.size, 0, Math.PI * 2);
+      ctx.fillStyle = grad;
       ctx.fill();
     });
+    
+    // 4. 尘埃带
+    dustLanes.forEach(dust => {
+      const rx = dust.x * cosR * scale - dust.y * sinR * scale;
+      const ry = (dust.x * sinR + dust.y * cosR) * scale;
+      const px = cx + rx;
+      const py = cy + ry * 0.35;
+      const pulse = Math.sin(state.time * 0.0008 + dust.r * 0.003) * 0.2 + 0.8;
+      const alpha = dust.opacity * pulse;
+      const s = dust.size * scale;
+      const grad = ctx.createRadialGradient(px, py, 0, px, py, s);
+      grad.addColorStop(0, `rgba(30, 25, 35, ${alpha})`);
+      grad.addColorStop(0.6, `rgba(20, 15, 25, ${alpha * 0.5})`);
+      grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.beginPath();
+      ctx.arc(px, py, s, 0, Math.PI * 2);
+      ctx.fillStyle = grad;
+      ctx.fill();
+    });
+    
+    // 5. 晕轮粒子
+    haloParticles.forEach(p => {
+      const rx = p.x * cosR * scale - p.y * sinR * scale;
+      const ry = (p.x * sinR + p.y * cosR) * scale;
+      const px = cx + rx;
+      const py = cy + ry * 0.35;
+      const alpha = p.opacity * (Math.sin(state.time * 0.001 + p.r * 0.002) * 0.3 + 0.7);
+      const s = p.size * scale;
+      ctx.beginPath();
+      ctx.arc(px, py, s, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(${p.color.r}, ${p.color.g}, ${p.color.b}, ${alpha})`;
+      ctx.fill();
+    });
+    
+    // 6. 螺旋臂粒子
+    galaxyParticles.forEach(p => {
+      const rx = p.x * cosR * scale - p.y * sinR * scale;
+      const ry = (p.x * sinR + p.y * cosR) * scale;
+      const px = cx + rx;
+      const py = cy + ry * 0.35;
+      const pulse = Math.sin(state.time * 0.0006 + p.r * 0.002) * 0.25 + 0.75;
+      const alpha = p.opacity * pulse;
+      const s = p.size * scale;
+      const grad = ctx.createRadialGradient(px, py, 0, px, py, s);
+      grad.addColorStop(0, `rgba(${p.color.r}, ${p.color.g}, ${p.color.b}, ${alpha})`);
+      grad.addColorStop(0.5, `rgba(${p.color.r}, ${p.color.g}, ${p.color.b}, ${alpha * 0.5})`);
+      grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.beginPath();
+      ctx.arc(px, py, s, 0, Math.PI * 2);
+      ctx.fillStyle = grad;
+      ctx.fill();
+    });
+    
+    // 7. 银核亮光
+    const coreGlow1 = ctx.createRadialGradient(cx, cy, 0, cx, cy, coreR * 0.8);
+    coreGlow1.addColorStop(0, 'rgba(255, 240, 220, 0.18)');
+    coreGlow1.addColorStop(0.3, 'rgba(255, 210, 180, 0.10)');
+    coreGlow1.addColorStop(0.6, 'rgba(200, 160, 200, 0.04)');
+    coreGlow1.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.beginPath();
+    ctx.arc(cx, cy, coreR * 0.8, 0, Math.PI * 2);
+    ctx.fillStyle = coreGlow1;
+    ctx.fill();
+    
+    const coreGlow2 = ctx.createRadialGradient(cx, cy, 0, cx, cy, coreR * 0.25);
+    coreGlow2.addColorStop(0, 'rgba(255, 255, 245, 0.3)');
+    coreGlow2.addColorStop(0.5, 'rgba(255, 230, 200, 0.12)');
+    coreGlow2.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.beginPath();
+    ctx.arc(cx, cy, coreR * 0.25, 0, Math.PI * 2);
+    ctx.fillStyle = coreGlow2;
+    ctx.fill();
   }
 
   function drawBackgroundStars(width, height) {
-    drawNebula(width, height);
-    
     spaceDust.forEach(dust => {
       dust.x += dust.speedX;
       dust.y += dust.speedY;
@@ -308,6 +513,11 @@
     const width = canvas.clientWidth;
     const height = canvas.clientHeight;
     ctx.clearRect(0, 0, width, height);
+
+    if (!prefersReducedMotion) {
+      stage.style.setProperty("--bg-shift-x", `${(Math.sin(state.rotationY) * -10).toFixed(2)}px`);
+      stage.style.setProperty("--bg-shift-y", `${(Math.sin(state.rotationX) * -7).toFixed(2)}px`);
+    }
     
     drawBackgroundStars(width, height);
     
@@ -400,14 +610,22 @@
     });
     ctx.restore();
 
-    state.projected.sort((a, b) => b.depth - a.depth).forEach(node => {
+    state.projected.sort((a, b) => b.depth - a.depth).forEach((node, nodeIndex) => {
       const isSelected = node.id === state.selected;
       const isHovered = node.id === state.hovered;
       const isRelated = related?.all.has(node.id);
       const dimmed = related && !isRelated;
       const color = cssColor(node.subject);
+      
+      // 入场动画：每个节点有渐进的延迟
+      const entranceElapsed = state.time - state.entranceStart;
+      const entranceDelay = nodeIndex * 35;
+      const entranceDuration = 800;
+      const entranceRaw = (entranceElapsed - entranceDelay) / entranceDuration;
+      const entranceProgress = Math.max(0, Math.min(1, entranceRaw < 0.5 ? 2 * entranceRaw * entranceRaw : -1 + (4 - 2 * entranceRaw) * entranceRaw));
+      
       ctx.save();
-      ctx.globalAlpha = dimmed ? .11 : node.alpha;
+      ctx.globalAlpha = dimmed ? .11 : node.alpha * entranceProgress;
       
       const pulsePhase = state.time * 0.003 + node.id.charCodeAt(0) * 0.05;
       const pulseScale = 1 + Math.sin(pulsePhase) * 0.15;
@@ -438,13 +656,13 @@
       
       const isSearched = state.searchedId === node.id;
       const searchPulse = isSearched ? 1 + Math.sin(state.time * 0.015) * 0.4 : 1;
-      const glowIntensity = isSelected ? 1.6 : isHovered ? 1.3 : isSearched ? 1.5 * searchPulse : isRelated ? 1.2 * nodeProgress : 1;
-      const glowRadius = node.radius * 3.2 * glowIntensity * pulseScale;
+      const glowIntensity = isSelected ? 1.8 : isHovered ? 1.4 : isSearched ? 1.5 * searchPulse : isRelated ? 1.3 * nodeProgress : 1;
+      const glowRadius = node.radius * 4.5 * glowIntensity * pulseScale;
       
-      const gradient = ctx.createRadialGradient(node.sx, node.sy, node.radius * 0.6, node.sx, node.sy, glowRadius);
-      gradient.addColorStop(0, `color-mix(in oklch, ${color} 85%, white)`);
-      gradient.addColorStop(0.45, `color-mix(in oklch, ${color} 60%, white)`);
-      gradient.addColorStop(0.7, `color-mix(in oklch, ${color} 30%, transparent)`);
+      const gradient = ctx.createRadialGradient(node.sx, node.sy, node.radius * 0.3, node.sx, node.sy, glowRadius);
+      gradient.addColorStop(0, `color-mix(in oklch, ${color} 90%, white)`);
+      gradient.addColorStop(0.35, `color-mix(in oklch, ${color} 70%, white)`);
+      gradient.addColorStop(0.6, `color-mix(in oklch, ${color} 40%, transparent)`);
       gradient.addColorStop(1, "transparent");
       
       ctx.beginPath();
@@ -452,11 +670,11 @@
       ctx.fillStyle = gradient;
       ctx.fill();
       
-      const starRadius = node.radius * (isSelected ? 1.3 : isHovered ? 1.15 : isRelated ? 1.1 * nodeProgress : 1);
+      const starRadius = node.radius * (isSelected ? 1.3 : isHovered ? 1.15 : isRelated ? 1.1 * nodeProgress : 1) * (0.5 + 0.5 * entranceProgress);
       const starSpikes = isSelected ? 6 : 5;
       
       ctx.shadowColor = color;
-      ctx.shadowBlur = starRadius * 2;
+      ctx.shadowBlur = starRadius * 3.5;
       ctx.shadowOffsetX = 0;
       ctx.shadowOffsetY = 0;
       
@@ -614,6 +832,7 @@
     document.querySelectorAll(".legend button").forEach(button => button.classList.toggle("is-muted", state.subject !== "all" && button.dataset.subject !== state.subject));
     const gradeText = state.grade === "all" ? "一至六年级" : state.grade === "1-3" ? "一至三年级" : `${state.grade}年级`;
     document.querySelector("#stageEyebrow").textContent = `${gradeText} · ${state.subject === "all" ? "中国小学课程" : state.subject}`;
+    state.entranceStart = performance.now();
     draw();
   }
 
