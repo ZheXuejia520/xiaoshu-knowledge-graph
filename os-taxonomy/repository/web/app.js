@@ -481,31 +481,52 @@
     }
   }
 
-  function drawStarShape(ctx, x, y, radius, spikes, color, alpha) {
-    let rot = Math.PI / 2 * 3;
-    const step = Math.PI / spikes;
-    const outerRadius = radius;
-    const innerRadius = radius * 0.45;
-    
-    ctx.beginPath();
-    ctx.moveTo(x, y - outerRadius);
-    
-    for (let i = 0; i < spikes; i++) {
-      let px = x + Math.cos(rot) * outerRadius;
-      let py = y + Math.sin(rot) * outerRadius;
-      ctx.lineTo(px, py);
-      rot += step;
-      
-      px = x + Math.cos(rot) * innerRadius;
-      py = y + Math.sin(rot) * innerRadius;
-      ctx.lineTo(px, py);
-      rot += step;
+  function drawOrbitNode(ctx, x, y, radius, color, options = {}) {
+    const { selected = false, hovered = false, related = false, searched = false, pulse = 1, alpha = 1 } = options;
+    const showOrbit = selected || hovered || related;
+    const orbitAlpha = selected ? 0.82 : hovered ? 0.58 : 0.22;
+    const orbitWidth = selected ? 1.15 : 0.75;
+    const orbitScale = selected ? 1.55 : hovered ? 1.42 : 1.26;
+    const tilt = options.tilt || 0;
+
+    if (showOrbit) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(tilt);
+      ctx.lineWidth = orbitWidth;
+      ctx.strokeStyle = `color-mix(in oklch, ${color} ${Math.round(orbitAlpha * 100)}%, white)`;
+      ctx.globalAlpha *= orbitAlpha;
+
+      // Ordinary nodes stay star-like; interaction progressively reveals the orbit.
+      ctx.beginPath();
+      ctx.ellipse(0, 0, radius * orbitScale, radius * 0.42 * orbitScale, 0, selected ? 0 : -0.65, selected ? Math.PI * 2 : Math.PI * 0.9);
+      ctx.stroke();
+      if (selected) {
+        ctx.beginPath();
+        ctx.ellipse(0, 0, radius * 0.48 * orbitScale, radius * 1.08 * orbitScale, 0, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.globalAlpha *= 0.82;
+        ctx.beginPath();
+        ctx.arc(0, 0, radius * 1.86, 0, Math.PI * 2);
+        ctx.strokeStyle = `color-mix(in oklch, ${color} 65%, white)`;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+      ctx.restore();
     }
-    
-    ctx.lineTo(x, y - outerRadius);
-    ctx.closePath();
+
+    const coreRadius = radius * (selected ? 0.72 : hovered ? 0.58 : 0.44);
+    const coreGradient = ctx.createRadialGradient(
+      x - coreRadius * 0.28, y - coreRadius * 0.32, 0,
+      x, y, coreRadius
+    );
+    coreGradient.addColorStop(0, "rgba(255, 255, 255, 1)");
+    coreGradient.addColorStop(0.32, `color-mix(in oklch, ${color} 78%, white)`);
+    coreGradient.addColorStop(1, color);
     ctx.globalAlpha = alpha;
-    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(x, y, coreRadius, 0, Math.PI * 2);
+    ctx.fillStyle = coreGradient;
     ctx.fill();
   }
 
@@ -656,13 +677,13 @@
       
       const isSearched = state.searchedId === node.id;
       const searchPulse = isSearched ? 1 + Math.sin(state.time * 0.015) * 0.4 : 1;
-      const glowIntensity = isSelected ? 1.8 : isHovered ? 1.4 : isSearched ? 1.5 * searchPulse : isRelated ? 1.3 * nodeProgress : 1;
-      const glowRadius = node.radius * 4.5 * glowIntensity * pulseScale;
+      const glowIntensity = isSelected ? 1.05 : isHovered ? 0.72 : isSearched ? 1.38 * searchPulse : isRelated ? 0.52 * nodeProgress : 0.34;
+      const glowRadius = node.radius * (isSearched ? 3.25 : 2.15) * glowIntensity * pulseScale;
       
       const gradient = ctx.createRadialGradient(node.sx, node.sy, node.radius * 0.3, node.sx, node.sy, glowRadius);
-      gradient.addColorStop(0, `color-mix(in oklch, ${color} 90%, white)`);
-      gradient.addColorStop(0.35, `color-mix(in oklch, ${color} 70%, white)`);
-      gradient.addColorStop(0.6, `color-mix(in oklch, ${color} 40%, transparent)`);
+      gradient.addColorStop(0, `color-mix(in oklch, ${color} ${isSearched ? 86 : 64}%, white)`);
+      gradient.addColorStop(0.3, `color-mix(in oklch, ${color} ${isSearched ? 48 : 24}%, transparent)`);
+      gradient.addColorStop(0.62, `color-mix(in oklch, ${color} ${isSearched ? 18 : 8}%, transparent)`);
       gradient.addColorStop(1, "transparent");
       
       ctx.beginPath();
@@ -670,36 +691,18 @@
       ctx.fillStyle = gradient;
       ctx.fill();
       
-      const starRadius = node.radius * (isSelected ? 1.3 : isHovered ? 1.15 : isRelated ? 1.1 * nodeProgress : 1) * (0.5 + 0.5 * entranceProgress);
-      const starSpikes = isSelected ? 6 : 5;
-      
-      ctx.shadowColor = color;
-      ctx.shadowBlur = starRadius * 3.5;
-      ctx.shadowOffsetX = 0;
-      ctx.shadowOffsetY = 0;
-      
       const nodeAlpha = isRelated ? node.alpha * (0.5 + 0.5 * nodeProgress) : node.alpha;
-      drawStarShape(ctx, node.sx, node.sy, starRadius, starSpikes, `color-mix(in oklch, ${color} 90%, white)`, nodeAlpha);
-      
-      ctx.shadowBlur = 0;
-      
-      const centerGradient = ctx.createRadialGradient(node.sx - starRadius * 0.25, node.sy - starRadius * 0.25, 0, node.sx, node.sy, starRadius * 0.5);
-      centerGradient.addColorStop(0, "white");
-      centerGradient.addColorStop(0.4, `color-mix(in oklch, ${color} 95%, white)`);
-      centerGradient.addColorStop(1, color);
-      
-      ctx.beginPath();
-      ctx.arc(node.sx, node.sy, starRadius * 0.45, 0, Math.PI * 2);
-      ctx.fillStyle = centerGradient;
-      ctx.fill();
-      
-      if (isSelected) {
-        ctx.lineWidth = 1.8;
-        ctx.strokeStyle = "rgba(255, 255, 255, 0.9)";
-        ctx.beginPath();
-        ctx.arc(node.sx, node.sy, starRadius * 1.4, 0, Math.PI * 2);
-        ctx.stroke();
-      }
+      const nodeRadius = node.radius * (isSelected ? 1.28 : isHovered ? 1.16 : isRelated ? 1.08 * nodeProgress : 1) * (0.62 + 0.38 * entranceProgress);
+      const orbitTilt = ((node.id.charCodeAt(0) * 0.37 + node.id.length) % 10 - 5) * 0.12;
+      drawOrbitNode(ctx, node.sx, node.sy, nodeRadius, color, {
+        selected: isSelected,
+        hovered: isHovered,
+        related: isRelated,
+        searched: isSearched,
+        pulse: searchPulse,
+        tilt: orbitTilt,
+        alpha: nodeAlpha
+      });
       ctx.restore();
     });
 
@@ -758,22 +761,6 @@
     draw();
   }
 
-  function renderRelations(container, ids) {
-    container.innerHTML = "";
-    if (!ids.length) {
-      container.innerHTML = '<span class="none">当前示例数据中暂无关联</span>';
-      return;
-    }
-    ids.forEach(id => {
-      const topic = byId.get(id);
-      const button = document.createElement("button");
-      button.type = "button";
-      button.textContent = topic.name;
-      button.addEventListener("click", () => selectTopic(id));
-      container.append(button);
-    });
-  }
-
   function renderDetail(topic) {
     const color = cssColor(topic.subject);
     document.querySelector("#emptyDetail").hidden = true;
@@ -783,34 +770,109 @@
     document.querySelector("#detailGrade").textContent = `${topic.grade}年级`;
     document.querySelector("#detailName").textContent = topic.name;
     document.querySelector("#detailDomain").textContent = topic.source ? `${topic.domain} · 来源：${topic.source}` : topic.domain;
-    document.querySelector("#detailDescription").textContent = topic.description;
-    
-    const examples = document.querySelector("#detailExamples");
-    examples.innerHTML = (topic.examples && topic.examples.length > 0) 
-      ? topic.examples.map((ex, i) => `
-        <div class="example-item">
-          <span class="example-number">例${i + 1}</span>
-          <div class="example-content">${ex}</div>
-        </div>
-      `).join("")
-      : '<p class="empty-text">暂无示例</p>';
-    
-    const tips = document.querySelector("#detailTips");
-    tips.innerHTML = (topic.tips && topic.tips.length > 0)
-      ? topic.tips.map(tip => `<li>💡 ${tip}</li>`).join("")
-      : '<li class="empty-text">暂无学习技巧</li>';
-    
-    const mistakes = document.querySelector("#detailCommonMistakes");
-    mistakes.innerHTML = (topic.commonMistakes && topic.commonMistakes.length > 0)
-      ? topic.commonMistakes.map(mistake => `<li>❌ ${mistake}</li>`).join("")
-      : '<li class="empty-text">暂无常见错误提示</li>';
-    
-    const evidence = document.querySelector("#detailEvidence");
-    evidence.innerHTML = topic.evidence.map(item => `<li>✅ ${item}</li>`).join("");
-    
+
+    // 1. 基础标签
+    const stageMap = { 1: "第一学段（1-2年级）", 2: "第一学段（1-2年级）", 3: "第二学段（3-4年级）", 4: "第二学段（3-4年级）", 5: "第三学段（5-6年级）", 6: "第三学段（5-6年级）" };
+    const basicItems = [
+      { label: "学段", value: topic.stage || stageMap[topic.grade] || "—" },
+      { label: "章节", value: topic.chapter || topic.domain || "—" },
+      { label: "课时", value: topic.lesson || "—" },
+      { label: "课标核心要求", value: topic.curriculumStandard || "—", span: 2 }
+    ];
+    document.querySelector("#basicInfo").innerHTML = basicItems.map(item => `
+      <div class="info-item${item.span ? ' span-2' : ''}">
+        <span class="info-label">${item.label}</span>
+        <span class="info-value">${item.value}</span>
+      </div>
+    `).join("");
+
+    // 2. 图谱逻辑链路
     const related = getRelated(topic.id);
-    renderRelations(document.querySelector("#prerequisites"), related.incoming);
-    renderRelations(document.querySelector("#unlocks"), related.outgoing);
+    const chainHTML = `
+      <div class="chain-tier prereq">
+        <div class="chain-tier-label">前置知识点（逻辑前提）</div>
+        <div class="chain-tier-nodes">${related.incoming.length ? related.incoming.map(id => {
+          const t = byId.get(id);
+          return `<span class="chain-node clickable" data-id="${id}">${t ? t.name : id}</span>`;
+        }).join("") : '<span class="empty-text">无（本级为起点）</span>'}</div>
+      </div>
+      <div class="chain-arrow">↓</div>
+      <div class="chain-tier core">
+        <div class="chain-tier-label">本级核心</div>
+        <div class="chain-tier-nodes"><span class="chain-node">${topic.name}</span></div>
+      </div>
+      <div class="chain-arrow">↓</div>
+      <div class="chain-tier derived">
+        <div class="chain-tier-label">后置衍生知识点（逻辑延伸）</div>
+        <div class="chain-tier-nodes">${related.outgoing.length ? related.outgoing.map(id => {
+          const t = byId.get(id);
+          return `<span class="chain-node clickable" data-id="${id}">${t ? t.name : id}</span>`;
+        }).join("") : '<span class="empty-text">无（本级为终点）</span>'}</div>
+      </div>
+    `;
+    const graphChain = document.querySelector("#graphChain");
+    graphChain.innerHTML = chainHTML;
+    graphChain.querySelectorAll(".chain-node.clickable").forEach(el => {
+      el.addEventListener("click", () => selectTopic(el.dataset.id));
+    });
+
+    // 3. 核心目标
+    document.querySelector("#coreGoals").innerHTML = `
+      <div class="goal-card">
+        <div class="goal-label knowledge">（1）知识目标</div>
+        <div class="goal-text">${topic.knowledgeGoal || topic.description || "暂无"}</div>
+      </div>
+      <div class="goal-card">
+        <div class="goal-label ability">（2）能力目标</div>
+        <div class="goal-text">${topic.abilityGoal || "暂无"}</div>
+      </div>
+      <div class="goal-card">
+        <div class="goal-label competency">（3）素养目标</div>
+        <div class="goal-text">${topic.competencyGoal || "暂无"}</div>
+      </div>
+    `;
+
+    // 4. 知识内容
+    const formulasHTML = (topic.formulas && topic.formulas.length > 0)
+      ? `<ul>${topic.formulas.map(f => `<li>${f}</li>`).join("")}</ul>`
+      : '<p class="empty-text">暂无</p>';
+    const propertiesHTML = (topic.properties && topic.properties.length > 0)
+      ? `<ul>${topic.properties.map(p => `<li>${p}</li>`).join("")}</ul>`
+      : '<p class="empty-text">暂无</p>';
+    document.querySelector("#knowledgeContent").innerHTML = `
+      <div class="knowledge-block">
+        <div class="kb-label">（1）定义</div>
+        <div class="kb-text">${topic.definition || topic.description || "暂无"}</div>
+      </div>
+      <div class="knowledge-block">
+        <div class="kb-label">（2）性质</div>
+        ${propertiesHTML}
+      </div>
+      <div class="knowledge-block">
+        <div class="kb-label">（3）公式</div>
+        ${formulasHTML}
+      </div>
+    `;
+
+    // 5. 知识练习（五步法）
+    const fp = topic.fiveStepPractice;
+    const stepNames = [
+      { title: "审题", key: "examine" },
+      { title: "建模", key: "model" },
+      { title: "分步", key: "steps" },
+      { title: "检验", key: "verify" },
+      { title: "反思", key: "reflect" }
+    ];
+    document.querySelector("#fiveSteps").innerHTML = stepNames.map((step, i) => `
+      <div class="step-row">
+        <div class="step-num">${i + 1}</div>
+        <div class="step-body">
+          <div class="step-title">${step.title}</div>
+          <div class="step-desc">${fp ? fp[step.key] || "暂无" : "暂无"}</div>
+        </div>
+      </div>
+    `).join("");
+
     detailPanel.scrollTop = 0;
   }
 
@@ -931,6 +993,17 @@
     draw();
   });
   document.querySelector("#closeDetail").addEventListener("click", clearSelection);
+
+  // 菜单栏折叠/展开
+  detailPanel.addEventListener("click", event => {
+    const header = event.target.closest(".menu-header");
+    if (!header) return;
+    const section = header.dataset.section;
+    const content = document.querySelector(`#${section}Section`);
+    if (!content) return;
+    const expanded = header.classList.toggle("is-expanded");
+    content.hidden = !expanded;
+  });
 
   playPathBtn.addEventListener("click", () => {
     if (state.playingPath) {

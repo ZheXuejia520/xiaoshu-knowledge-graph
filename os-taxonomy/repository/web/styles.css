@@ -181,25 +181,78 @@ button:focus-visible, input:focus-visible, select:focus-visible {
 .topic-meta span:first-child { background: color-mix(in oklch, var(--topic-color) 13%, white); color: color-mix(in oklch, var(--topic-color) 78%, black); }
 .detail-head h2 { margin: 16px 0 7px; font-size: 22px; line-height: 1.35; letter-spacing: -.02em; text-wrap: balance; }
 .detail-head > p { margin: 0; color: var(--muted); font-size: 12px; }
-.detail-body { padding: 2px 26px 36px; }
-.detail-body section { padding: 20px 0; border-bottom: 1px solid var(--line); }
-.detail-body section:last-child { border: 0; }
-.detail-body h3 { font-size: 12px; margin: 0 0 10px; }
-.detail-body p, .detail-body li { color: color-mix(in oklch, var(--ink) 80%, var(--bg)); font-size: 13px; line-height: 1.72; }
-.detail-body p { margin: 0; }
-.detail-body ul { margin: 0; padding-left: 18px; }
-.detail-body li + li { margin-top: 6px; }
-.relation-block + .relation-block { margin-top: 14px; }
-.relation-block > span { display: block; color: var(--muted); font-size: 10px; margin-bottom: 7px; }
-.relation-list { display: flex; flex-wrap: wrap; gap: 6px; }
-.relation-list button { border: 0; border-radius: 7px; padding: 7px 9px; background: var(--surface-strong); font-size: 11px; cursor: pointer; text-align: left; }
-.relation-list button:hover { background: color-mix(in oklch, var(--primary) 14%, white); }
-.relation-list .none { color: var(--muted); font-size: 11px; }
+.detail-body { padding: 0 0 16px; }
 
-.examples-list { display: flex; flex-direction: column; gap: 10px; }
-.example-item { display: flex; gap: 10px; padding: 10px 12px; background: rgba(100, 150, 255, 0.08); border-radius: 8px; border-left: 3px solid var(--math); }
-.example-number { font-size: 11px; font-weight: 600; color: var(--math); min-width: 20px; }
-.example-content { font-size: 13px; color: color-mix(in oklch, var(--ink) 85%, var(--bg)); line-height: 1.6; }
+/* 菜单栏组件 */
+.menu-section { border-bottom: 1px solid rgba(100, 130, 180, 0.15); }
+.menu-section:last-child { border-bottom: none; }
+.menu-header { display: flex; align-items: center; gap: 10px; width: 100%; padding: 14px 22px; border: 0; background: transparent; cursor: pointer; color: var(--ink); transition: background .18s; }
+.menu-header:hover { background: rgba(100, 140, 200, 0.06); }
+.menu-num { font-size: 11px; font-weight: 700; color: var(--muted); min-width: 20px; }
+.menu-label { font-size: 14px; font-weight: 600; flex: 1; text-align: left; }
+.menu-chevron { width: 18px; height: 18px; stroke: var(--muted); stroke-width: 1.5; fill: none; stroke-linecap: round; stroke-linejoin: round; transition: transform .22s var(--ease); }
+.menu-header.is-expanded .menu-chevron { transform: rotate(180deg); }
+.menu-content { padding: 0 22px 16px; }
+.menu-content[hidden] { display: none; }
+
+/* 基础标签信息网格 */
+.info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.info-item { display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; background: rgba(100, 140, 200, 0.06); border-radius: 8px; border: 1px solid rgba(100, 130, 180, 0.12); }
+.info-item .info-label { font-size: 10px; color: var(--muted); }
+.info-item .info-value { font-size: 12px; color: var(--ink); font-weight: 500; }
+.info-item.span-2 { grid-column: 1 / -1; }
+
+/* 图谱逻辑链路三段式 */
+.graph-chain { display: flex; flex-direction: column; align-items: center; gap: 0; }
+.chain-tier { width: 100%; padding: 12px 14px; border-radius: 10px; text-align: center; }
+.chain-tier.prereq { background: rgba(140, 120, 200, 0.1); border: 1px solid rgba(140, 120, 200, 0.2); }
+.chain-tier.core { background: rgba(100, 150, 220, 0.15); border: 1px solid rgba(100, 150, 220, 0.3); margin: 8px 0; }
+.chain-tier.derived { background: rgba(120, 180, 140, 0.1); border: 1px solid rgba(120, 180, 140, 0.2); }
+.chain-tier-label { font-size: 10px; color: var(--muted); margin-bottom: 6px; }
+.chain-tier.prereq .chain-tier-label { color: oklch(0.62 0.12 280); }
+.chain-tier.core .chain-tier-label { color: oklch(0.65 0.14 250); }
+.chain-tier.derived .chain-tier-label { color: oklch(0.62 0.12 150); }
+.chain-tier-nodes { display: flex; flex-wrap: wrap; gap: 5px; justify-content: center; }
+.chain-tier-nodes .chain-node { padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 500; }
+.chain-tier.prereq .chain-node { background: rgba(140, 120, 200, 0.2); color: oklch(0.72 0.1 280); }
+.chain-tier.core .chain-node { background: rgba(100, 150, 220, 0.25); color: oklch(0.75 0.1 240); font-size: 13px; }
+.chain-tier.derived .chain-node { background: rgba(120, 180, 140, 0.2); color: oklch(0.68 0.1 150); }
+.chain-tier .chain-node.clickable { cursor: pointer; transition: all .18s; }
+.chain-tier .chain-node.clickable:hover { filter: brightness(1.3); transform: scale(1.04); }
+.chain-arrow { color: var(--muted); font-size: 16px; line-height: 1; margin: -2px 0; }
+.chain-tier .empty-text { color: var(--muted); font-size: 11px; }
+
+/* 核心目标 */
+.goal-card { padding: 12px 14px; margin-bottom: 8px; border-radius: 8px; border: 1px solid rgba(100, 130, 180, 0.12); background: rgba(100, 140, 200, 0.05); }
+.goal-card:last-child { margin-bottom: 0; }
+.goal-card .goal-label { font-size: 10px; font-weight: 600; margin-bottom: 5px; }
+.goal-card .goal-label.knowledge { color: oklch(0.68 0.15 250); }
+.goal-card .goal-label.ability { color: oklch(0.68 0.15 60); }
+.goal-card .goal-label.competency { color: oklch(0.68 0.15 165); }
+.goal-card .goal-text { font-size: 12px; color: color-mix(in oklch, var(--ink) 82%, var(--bg)); line-height: 1.6; }
+
+/* 知识内容 */
+.knowledge-block { padding: 12px 14px; margin-bottom: 8px; border-radius: 8px; border: 1px solid rgba(100, 130, 180, 0.12); background: rgba(100, 140, 200, 0.05); }
+.knowledge-block:last-child { margin-bottom: 0; }
+.knowledge-block .kb-label { font-size: 10px; font-weight: 600; margin-bottom: 5px; color: var(--primary-dark); }
+.knowledge-block .kb-text { font-size: 12px; color: color-mix(in oklch, var(--ink) 82%, var(--bg)); line-height: 1.7; }
+.knowledge-block ul { margin: 0; padding-left: 16px; }
+.knowledge-block li { font-size: 12px; color: color-mix(in oklch, var(--ink) 82%, var(--bg)); line-height: 1.7; }
+.knowledge-block li + li { margin-top: 4px; }
+
+/* 五步法 */
+.five-steps { display: flex; flex-direction: column; gap: 6px; }
+.step-row { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border-radius: 8px; background: rgba(100, 140, 200, 0.05); border: 1px solid rgba(100, 130, 180, 0.1); }
+.step-num { flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: white; }
+.step-row:nth-child(1) .step-num { background: oklch(0.55 0.15 260); }
+.step-row:nth-child(2) .step-num { background: oklch(0.55 0.15 290); }
+.step-row:nth-child(3) .step-num { background: oklch(0.55 0.15 320); }
+.step-row:nth-child(4) .step-num { background: oklch(0.55 0.15 150); }
+.step-row:nth-child(5) .step-num { background: oklch(0.55 0.15 60); }
+.step-body { flex: 1; }
+.step-title { font-size: 12px; font-weight: 600; margin-bottom: 2px; }
+.step-desc { font-size: 11px; color: color-mix(in oklch, var(--ink) 75%, var(--bg)); line-height: 1.6; }
+
 .empty-text { color: var(--muted); font-size: 12px; font-style: italic; }
 
 @media (max-width: 900px) {

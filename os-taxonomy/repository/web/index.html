@@ -101,45 +101,74 @@
               <h2 id="detailName"></h2>
               <p id="detailDomain"></p>
             </div>
+
             <div class="detail-body">
-              <section>
-                <h3>这个知识点讲什么</h3>
-                <p id="detailDescription"></p>
-              </section>
-              <section>
-                <h3>举个例子</h3>
-                <div id="detailExamples" class="examples-list"></div>
-              </section>
-              <section>
-                <h3> 学习小窍门</h3>
-                <ul id="detailTips"></ul>
-              </section>
-              <section>
-                <h3>容易错的地方</h3>
-                <ul id="detailCommonMistakes"></ul>
-              </section>
-              <section>
-                <h3> 掌握的表现</h3>
-                <ul id="detailEvidence"></ul>
-              </section>
-              <section class="relation-section">
-                <h3>学习路径</h3>
-                <div class="relation-block">
-                  <span>需要先会</span>
-                  <div id="prerequisites" class="relation-list"></div>
+              <!-- 菜单栏 1：基础标签 -->
+              <div class="menu-section">
+                <button class="menu-header is-expanded" data-section="basic">
+                  <span class="menu-num">01</span>
+                  <span class="menu-label">基础标签</span>
+                  <svg class="menu-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+                </button>
+                <div class="menu-content" id="basicSection">
+                  <div class="info-grid" id="basicInfo"></div>
                 </div>
-                <div class="relation-block">
-                  <span>接下来解锁</span>
-                  <div id="unlocks" class="relation-list"></div>
+              </div>
+
+              <!-- 菜单栏 2：图谱逻辑链路 -->
+              <div class="menu-section">
+                <button class="menu-header is-expanded" data-section="graph">
+                  <span class="menu-num">02</span>
+                  <span class="menu-label">图谱逻辑链路</span>
+                  <svg class="menu-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+                </button>
+                <div class="menu-content" id="graphSection">
+                  <div class="graph-chain" id="graphChain"></div>
                 </div>
-              </section>
+              </div>
+
+              <!-- 菜单栏 3：核心目标 -->
+              <div class="menu-section">
+                <button class="menu-header" data-section="goals">
+                  <span class="menu-num">03</span>
+                  <span class="menu-label">核心目标</span>
+                  <svg class="menu-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+                </button>
+                <div class="menu-content" id="goalsSection" hidden>
+                  <div id="coreGoals"></div>
+                </div>
+              </div>
+
+              <!-- 菜单栏 4：知识内容 -->
+              <div class="menu-section">
+                <button class="menu-header" data-section="content">
+                  <span class="menu-num">04</span>
+                  <span class="menu-label">知识内容</span>
+                  <svg class="menu-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+                </button>
+                <div class="menu-content" id="contentSection" hidden>
+                  <div id="knowledgeContent"></div>
+                </div>
+              </div>
+
+              <!-- 菜单栏 5：知识练习 -->
+              <div class="menu-section">
+                <button class="menu-header" data-section="practice">
+                  <span class="menu-num">05</span>
+                  <span class="menu-label">知识练习</span>
+                  <svg class="menu-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+                </button>
+                <div class="menu-content" id="practiceSection" hidden>
+                  <div class="five-steps" id="fiveSteps"></div>
+                </div>
+              </div>
             </div>
           </div>
         </aside>
       </main>
     </div>
 
-    <script src="data-cn.js?v=7"></script>
+    <script src="data-cn.js?v=8"></script>
     <script src="app.js?v=8"></script>
   </body>
 </html>
