@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>小数探客 · 登录</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: oklch(0.06 0.015 260);
+      --surface: oklch(0.14 0.015 260);
+      --surface-strong: oklch(0.20 0.02 260);
+      --ink: oklch(0.94 0.01 95);
+      --muted: oklch(0.55 0.02 95);
+      --line: oklch(0.28 0.02 260);
+      --primary: oklch(0.72 0.18 60);
+      --accent: oklch(0.62 0.18 288);
+      --radius: 14px;
+      --ease: cubic-bezier(.22, 1, .36, 1);
+      font-family: Inter, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body { width: 100%; height: 100%; overflow: hidden; }
+
+    body {
+      background: radial-gradient(ellipse at 50% 50%, oklch(0.06 0.015 260) 0%, oklch(0.02 0.005 260) 70%, oklch(0.01 0.003 260) 100%);
+      color: var(--ink);
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    /* ---------- 星空背景 ---------- */
+    canvas#bgCanvas {
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    }
+
+    /* ---------- 卡片容器 ---------- */
+    .auth-card {
+      position: relative; z-index: 1;
+      width: 420px; max-width: 92vw;
+      background: rgba(15, 20, 40, 0.82);
+      backdrop-filter: blur(24px) saturate(1.4);
+      border: 1px solid rgba(100, 130, 200, 0.22);
+      border-radius: 20px;
+      padding: 44px 40px 36px;
+      box-shadow: 0 0 60px rgba(80, 120, 220, 0.12), 0 8px 32px rgba(0, 0, 0, 0.5);
+      animation: cardIn 0.6s var(--ease);
+    }
+
+    @keyframes cardIn {
+      from { opacity: 0; transform: translateY(24px) scale(0.96); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    /* ---------- 品牌 ---------- */
+    .brand {
+      display: flex; align-items: center; gap: 10px; margin-bottom: 32px;
+      text-decoration: none; color: inherit;
+    }
+    .brand-mark {
+      display: flex; gap: 3px; align-items: flex-end;
+    }
+    .brand-mark i {
+      display: block; border-radius: 2px;
+      width: 5px; background: var(--primary);
+    }
+    .brand-mark i:nth-child(1) { height: 9px; }
+    .brand-mark i:nth-child(2) { height: 15px; background: var(--accent); }
+    .brand-mark i:nth-child(3) { height: 12px; }
+    .brand strong { font-size: 20px; letter-spacing: 0.5px; }
+    .brand small { display: block; font-size: 12px; color: var(--muted); font-weight: 400; margin-top: 1px; }
+
+    /* ---------- 标签切换 ---------- */
+    .tab-row {
+      display: flex; gap: 0; margin-bottom: 28px;
+      border-bottom: 1px solid var(--line); position: relative;
+    }
+    .tab-btn {
+      flex: 1; padding: 10px 0; background: none; border: none;
+      color: var(--muted); font-size: 15px; cursor: pointer;
+      transition: color 0.25s; position: relative;
+    }
+    .tab-btn.active { color: var(--ink); font-weight: 600; }
+    .tab-btn.active::after {
+      content: ''; position: absolute; bottom: -1px; left: 20%; right: 20%;
+      height: 2px; background: var(--primary); border-radius: 1px;
+    }
+    .tab-slider {
+      position: absolute; bottom: -1px; height: 2px;
+      background: var(--primary); border-radius: 1px;
+      transition: left 0.3s var(--ease), width 0.3s var(--ease);
+    }
+
+    /* ---------- 表单 ---------- */
+    .form-panel { display: none; }
+    .form-panel.active { display: block; animation: fadeIn 0.35s var(--ease); }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .field {
+      margin-bottom: 18px;
+    }
+    .field label {
+      display: block; font-size: 13px; color: var(--muted);
+      margin-bottom: 6px; font-weight: 500;
+    }
+    .field input {
+      width: 100%; padding: 11px 14px;
+      background: rgba(20, 30, 55, 0.7);
+      border: 1px solid rgba(100, 130, 200, 0.2);
+      border-radius: 10px; color: var(--ink); font-size: 15px;
+      outline: none; transition: border-color 0.25s, box-shadow 0.25s;
+    }
+    .field input:focus {
+      border-color: rgba(130, 160, 240, 0.5);
+      box-shadow: 0 0 0 3px rgba(100, 140, 220, 0.12);
+    }
+    .field input::placeholder { color: rgba(180, 190, 210, 0.35); }
+
+    .hint {
+      font-size: 12px; color: var(--muted); margin-top: 4px;
+      display: flex; align-items: center; gap: 4px;
+    }
+    .hint svg { width: 14px; height: 14px; opacity: 0.6; }
+
+    /* ---------- 按钮 ---------- */
+    .submit-btn {
+      width: 100%; padding: 12px 0; margin-top: 8px;
+      background: linear-gradient(135deg, oklch(0.55 0.16 55), oklch(0.65 0.18 50));
+      border: none; border-radius: 10px; color: #fff; font-size: 16px;
+      font-weight: 600; cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s, opacity 0.2s;
+    }
+    .submit-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 20px rgba(200, 150, 30, 0.3);
+    }
+    .submit-btn:active { transform: scale(0.98); }
+    .submit-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+
+    /* ---------- 消息提示 ---------- */
+    .msg {
+      text-align: center; font-size: 13px; margin-top: 14px;
+      padding: 8px 12px; border-radius: 8px; display: none;
+    }
+    .msg.error { display: block; background: rgba(255, 70, 70, 0.12); color: #ff7b7b; }
+    .msg.success { display: block; background: rgba(70, 200, 120, 0.12); color: #6cdb8e; }
+  </style>
+</head>
+<body>
+  <canvas id="bgCanvas"></canvas>
+
+  <div class="auth-card">
+    <a class="brand" href="/">
+      <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+      <span><strong>小数探客</strong><small>知识宇宙</small></span>
+    </a>
+
+    <div class="tab-row">
+      <button class="tab-btn active" data-tab="login">登录</button>
+      <button class="tab-btn" data-tab="register">注册</button>
+    </div>
+
+    <!-- 登录表单 -->
+    <div class="form-panel active" id="loginPanel">
+      <div class="field">
+        <label>用户名</label>
+        <input id="loginUser" type="text" placeholder="请输入用户名" autocomplete="username" />
+      </div>
+      <div class="field">
+        <label>密码</label>
+        <input id="loginPass" type="password" placeholder="请输入密码" autocomplete="current-password" />
+      </div>
+      <button class="submit-btn" id="loginBtn">登 录</button>
+      <div class="msg" id="loginMsg"></div>
+    </div>
+
+    <!-- 注册表单 -->
+    <div class="form-panel" id="registerPanel">
+      <div class="field">
+        <label>用户名</label>
+        <input id="regUser" type="text" placeholder="2-20 个字符" autocomplete="username" />
+      </div>
+      <div class="field">
+        <label>密码</label>
+        <input id="regPass" type="password" placeholder="至少 6 位" autocomplete="new-password" />
+      </div>
+      <div class="field">
+        <label>4 位校验码</label>
+        <input id="regCode" type="text" placeholder="请输入购买后获得的校验码" maxlength="4" autocomplete="off" />
+        <div class="hint">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4m0-4h.01"/></svg>
+          校验码由管理员提供，一码一人
+        </div>
+      </div>
+      <button class="submit-btn" id="regBtn">注 册</button>
+      <div class="msg" id="regMsg"></div>
+    </div>
+  </div>
+
+  <script>
+    // ---------- 星空背景 ----------
+    const bgCanvas = document.querySelector('#bgCanvas');
+    const bgCtx = bgCanvas.getContext('2d');
+    let stars = [];
+
+    function resizeBg() {
+      bgCanvas.width = window.innerWidth;
+      bgCanvas.height = window.innerHeight;
+    }
+    resizeBg();
+    window.addEventListener('resize', resizeBg);
+
+    stars = Array.from({ length: 80 }, () => ({
+      x: Math.random() * window.innerWidth,
+      y: Math.random() * window.innerHeight,
+      r: Math.random() * 1.5 + 0.3,
+      twinkle: Math.random() * Math.PI * 2,
+      speed: Math.random() * 0.02 + 0.005,
+      alpha: Math.random() * 0.6 + 0.2,
+    }));
+
+    function drawBg() {
+      bgCtx.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
+      stars.forEach(s => {
+        s.twinkle += s.speed;
+        const alpha = s.alpha + Math.sin(s.twinkle) * 0.25;
+        bgCtx.beginPath();
+        bgCtx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+        bgCtx.fillStyle = `rgba(180,200,255,${Math.max(0.05, alpha)})`;
+        bgCtx.fill();
+      });
+      requestAnimationFrame(drawBg);
+    }
+    drawBg();
+
+    // ---------- 标签切换 ----------
+    const tabs = document.querySelectorAll('.tab-btn');
+    const panels = document.querySelectorAll('.form-panel');
+
+    tabs.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const target = btn.dataset.tab;
+        tabs.forEach(b => b.classList.remove('active'));
+        panels.forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById(target === 'login' ? 'loginPanel' : 'registerPanel').classList.add('active');
+        // 清空消息
+        document.querySelectorAll('.msg').forEach(m => { m.className = 'msg'; m.textContent = ''; });
+      });
+    });
+
+    // ---------- 消息显示 ----------
+    function showMsg(id, text, type) {
+      const el = document.getElementById(id);
+      el.textContent = text;
+      el.className = 'msg ' + type;
+    }
+
+    // ---------- 登录 ----------
+    document.getElementById('loginBtn').addEventListener('click', async () => {
+      const username = document.getElementById('loginUser').value.trim();
+      const password = document.getElementById('loginPass').value.trim();
+
+      if (!username || !password) {
+        showMsg('loginMsg', '请输入用户名和密码', 'error');
+        return;
+      }
+
+      const btn = document.getElementById('loginBtn');
+      btn.disabled = true;
+      btn.textContent = '登录中...';
+
+      try {
+        const res = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          localStorage.setItem('token', data.token);
+          localStorage.setItem('username', data.username);
+          localStorage.setItem('remaining_days', data.remaining_days || 0);
+          localStorage.setItem('expires_at', data.expires_at || '');
+          const remainMsg = data.remaining_days ? `（剩余 ${data.remaining_days} 天）` : '';
+          showMsg('loginMsg', '登录成功' + remainMsg + '，正在跳转...', 'success');
+          setTimeout(() => { window.location.href = '/'; }, 600);
+        } else {
+          showMsg('loginMsg', data.detail || '登录失败', 'error');
+        }
+      } catch (e) {
+        showMsg('loginMsg', '网络错误，请稍后重试', 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '登 录';
+      }
+    });
+
+    // 回车登录
+    document.getElementById('loginPass').addEventListener('keydown', e => {
+      if (e.key === 'Enter') document.getElementById('loginBtn').click();
+    });
+
+    // ---------- 注册 ----------
+    document.getElementById('regBtn').addEventListener('click', async () => {
+      const username = document.getElementById('regUser').value.trim();
+      const password = document.getElementById('regPass').value.trim();
+      const code = document.getElementById('regCode').value.trim();
+
+      if (!username || username.length < 2 || username.length > 20) {
+        showMsg('regMsg', '用户名需 2-20 个字符', 'error');
+        return;
+      }
+      if (!password || password.length < 6) {
+        showMsg('regMsg', '密码至少 6 位', 'error');
+        return;
+      }
+      if (!code || code.length !== 4 || !/^\d{4}$/.test(code)) {
+        showMsg('regMsg', '请输入 4 位数字校验码', 'error');
+        return;
+      }
+
+      const btn = document.getElementById('regBtn');
+      btn.disabled = true;
+      btn.textContent = '注册中...';
+
+      try {
+        const res = await fetch('/api/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password, code }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          localStorage.setItem('token', data.token);
+          localStorage.setItem('username', data.username);
+          localStorage.setItem('remaining_days', data.remaining_days || 0);
+          localStorage.setItem('expires_at', data.expires_at || '');
+          const remainMsg = data.remaining_days ? `（${data.type === 'year' ? '年卡' : '体验卡'}，${data.remaining_days} 天）` : '';
+          showMsg('regMsg', '注册成功' + remainMsg + '！正在跳转...', 'success');
+          setTimeout(() => { window.location.href = '/'; }, 800);
+        } else {
+          showMsg('regMsg', data.detail || '注册失败', 'error');
+        }
+      } catch (e) {
+        showMsg('regMsg', '网络错误，请稍后重试', 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '注 册';
+      }
+    });
+
+    // 回车注册
+    document.getElementById('regCode').addEventListener('keydown', e => {
+      if (e.key === 'Enter') document.getElementById('regBtn').click();
+    });
+  </script>
+</body>
+</html>

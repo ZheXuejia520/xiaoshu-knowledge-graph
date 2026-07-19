@@ -5,9 +5,32 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="中国小学一至六年级交互式课程知识图谱" />
     <title>小数探客 · 知识宇宙</title>
-    <link rel="stylesheet" href="styles.css?v=8" />
+    <link rel="stylesheet" href="styles.css?v=14" />
   </head>
   <body>
+    <!-- 登录检测 -->
+    <script>
+      (function() {
+        var token = localStorage.getItem('token');
+        if (!token) {
+          window.location.replace('/login.html');
+          return;
+        }
+        // 验证 token 有效性
+        fetch('/api/me', { headers: { 'Authorization': 'Bearer ' + token } })
+          .then(function(r) {
+            if (!r.ok) {
+              localStorage.removeItem('token');
+              localStorage.removeItem('username');
+              window.location.replace('/login.html');
+            }
+          })
+          .catch(function() {
+            // 网络错误时不强制跳转，允许离线查看
+          });
+      })();
+    </script>
+
     <div class="app-shell">
       <header class="topbar">
         <a class="brand" href="#" aria-label="小数探课知识宇宙首页">
@@ -19,6 +42,12 @@
           <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m21 21-4.35-4.35m2.1-5.4a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0Z"/></svg>
           <input id="searchInput" type="search" placeholder="搜索知识点，例如：分数、古诗、光……" autocomplete="off" />
           <div id="searchResults" class="search-results" hidden></div>
+        </div>
+
+        <div class="user-area" id="userArea">
+          <span class="user-name" id="userNameDisplay"></span>
+          <span class="remain-badge" id="remainBadge" style="display:none"></span>
+          <button id="logoutBtn" class="logout-btn" type="button" title="退出登录">退出</button>
         </div>
 
         <button id="playPath" class="icon-button" type="button" title="从一年级开始播放" aria-label="从一年级开始播放">
@@ -87,6 +116,10 @@
         </section>
 
         <aside id="detailPanel" class="detail-panel" aria-label="知识点详情">
+          <div class="panel-handle" id="panelHandle">
+            <span class="panel-handle-bar"></span>
+            <span class="panel-handle-text">上滑查看详情</span>
+          </div>
           <div class="empty-detail" id="emptyDetail">
             <div class="orbit-icon" aria-hidden="true"><span></span><i></i><b></b></div>
             <h2>选择一个知识点</h2>
@@ -169,6 +202,6 @@
     </div>
 
     <script src="data-cn.js?v=8"></script>
-    <script src="app.js?v=8"></script>
+    <script src="app.js?v=20"></script>
   </body>
 </html>

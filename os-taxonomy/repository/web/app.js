@@ -1,4 +1,57 @@
 (() => {
+  // ---------- 用户信息 & 退出登录 ----------
+  const username = localStorage.getItem('username');
+  const userNameDisplay = document.querySelector('#userNameDisplay');
+  if (userNameDisplay && username) {
+    userNameDisplay.textContent = username;
+  }
+
+  // 剩余天数 badge
+  const remainBadge = document.querySelector('#remainBadge');
+  const updateRemainBadge = (days) => {
+    if (!remainBadge) return;
+    remainBadge.style.display = 'inline';
+    if (days <= 0) {
+      remainBadge.textContent = '已过期';
+      remainBadge.className = 'remain-badge expired';
+    } else if (days <= 7) {
+      remainBadge.textContent = '剩余 ' + days + ' 天';
+      remainBadge.className = 'remain-badge warning';
+    } else {
+      remainBadge.textContent = '剩余 ' + days + ' 天';
+      remainBadge.className = 'remain-badge';
+    }
+  };
+
+  const savedRemaining = localStorage.getItem('remaining_days');
+  if (savedRemaining) {
+    updateRemainBadge(parseInt(savedRemaining) || 0);
+  }
+
+  // 验证 token 并同步最新剩余天数
+  const token = localStorage.getItem('token');
+  if (token) {
+    fetch('/api/me', { headers: { 'Authorization': 'Bearer ' + token } })
+      .then(res => res.ok ? res.json() : Promise.reject(res))
+      .then(data => {
+        localStorage.setItem('remaining_days', data.remaining_days);
+        localStorage.setItem('expires_at', data.expires_at || '');
+        updateRemainBadge(data.remaining_days);
+      })
+      .catch(() => {});
+  }
+
+  const logoutBtn = document.querySelector('#logoutBtn');
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', () => {
+      localStorage.removeItem('token');
+      localStorage.removeItem('username');
+      localStorage.removeItem('remaining_days');
+      localStorage.removeItem('expires_at');
+      window.location.replace('/login.html');
+    });
+  }
+
   const { topics, dependencies, subjects } = window.CURRICULUM_DATA;
   const canvas = document.querySelector("#graphCanvas");
   const ctx = canvas.getContext("2d");
@@ -10,6 +63,8 @@
   const subjectFilter = document.querySelector("#subjectFilter");
   const playPathBtn = document.querySelector("#playPath");
   const byId = new Map(topics.map(topic => [topic.id, topic]));
+  
+  
   const prefersReducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   const subjectOrder = Object.keys(subjects);
@@ -24,6 +79,7 @@
     rotationY: -0.38,
     zoom: 1,
     selected: null,
+    panelTimeout: null,
     hovered: null,
     dragging: false,
     moved: false,
@@ -40,7 +96,10 @@
     playIndex: 0,
     playTopics: [],
     searchedId: null,
-    entranceStart: performance.now()
+    entranceStart: performance.now(),
+    fishActive: false,
+    fishStartTime: 0,
+    fishPhase: 0
   };
 
   const backgroundStars = Array.from({ length: 110 }, () => ({
@@ -530,6 +589,393 @@
     ctx.fill();
   }
 
+  // ---------- 小鱼彩蛋 ----------
+  function drawFish(ctx, width, height) {
+    const elapsed = state.time - state.fishStartTime;
+    if (elapsed < 0) return;
+
+    const cycle = 8000;
+    const t = (elapsed % cycle) / cycle;
+    const fishX = width * 0.12 + t * width * 0.76;
+    const fishY = height * 0.5 + Math.sin(t * Math.PI * 3.5) * height * 0.22;
+    const facingRight = Math.sin(t * Math.PI * 3.5 + Math.PI / 2) > 0;
+    const dir = facingRight ? 1 : -1;
+
+    const fadeIn = Math.min(1, elapsed / 500);
+    const fadeOut = elapsed > 6200 ? Math.max(0, 1 - (elapsed - 6200) / 700) : 1;
+    const alpha = fadeIn * fadeOut;
+
+    const bodyLen = Math.min(width, height) * 0.22;
+    const bodyH = bodyLen * 0.72; // 金鱼体型：短胖
+    const swimPhase = elapsed * 0.0022;
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+
+    // --- 光晕 ---
+    const gg = ctx.createRadialGradient(fishX, fishY, bodyLen * 0.06, fishX, fishY, bodyLen * 1.2);
+    gg.addColorStop(0, 'rgba(255,160,60,0.12)');
+    gg.addColorStop(0.5, 'rgba(255,80,30,0.04)');
+    gg.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = gg;
+    ctx.beginPath();
+    ctx.arc(fishX, fishY, bodyLen * 1.2, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    // 金鱼身体：蛋形，中间最胖，头尾收窄
+    const numSpine = 34;
+    const spinePoints = [];
+    for (let i = 0; i <= numSpine; i++) {
+      const frac = i / numSpine;
+      // x 位置：0（尾）~ 1（头）
+      const sx = fishX + (frac - 0.45) * bodyLen * 0.8 * dir;
+      const undulation = Math.sin(frac * Math.PI * 2.2 + swimPhase) * bodyH * 0.22 * (1 - Math.abs(frac - 0.5) * 0.8);
+      // 蛋形厚度：最厚处在 0.6（偏头），头端不尖、保留弧度
+      const egg = 1 - Math.pow(Math.abs(frac - 0.6) * 1.3, 2.5);
+      const thick = Math.max(0.18, egg) * bodyH * 0.5;
+      spinePoints.push({ x: sx, y: fishY + undulation, thick });
+    }
+
+    // --- 身体填充（金鱼橙红色调） ---
+    ctx.save();
+    ctx.beginPath();
+    for (let i = 0; i <= numSpine; i++) {
+      const p = spinePoints[i];
+      if (i === 0) ctx.moveTo(p.x, p.y - p.thick);
+      else ctx.lineTo(p.x, p.y - p.thick);
+    }
+    // 圆头：用弧线从背部过渡到腹部
+    const headP = spinePoints[numSpine];
+    const headTipX = headP.x + dir * bodyLen * 0.06;
+    ctx.quadraticCurveTo(headP.x + dir * bodyLen * 0.08, headP.y, headTipX, headP.y + bodyH * 0.02);
+    ctx.quadraticCurveTo(headP.x + dir * bodyLen * 0.08, headP.y + bodyH * 0.04, headP.x, headP.y + headP.thick);
+    for (let i = numSpine; i >= 0; i--) {
+      const p = spinePoints[i];
+      ctx.lineTo(p.x, p.y + p.thick);
+    }
+    ctx.closePath();
+    const bodyFill = ctx.createLinearGradient(fishX, fishY - bodyH * 0.5, fishX, fishY + bodyH * 0.5);
+    bodyFill.addColorStop(0, 'rgba(255,200,120,0.15)');
+    bodyFill.addColorStop(0.25, 'rgba(255,140,50,0.45)');
+    bodyFill.addColorStop(0.5, 'rgba(255,100,20,0.55)');
+    bodyFill.addColorStop(0.75, 'rgba(255,150,60,0.4)');
+    bodyFill.addColorStop(1, 'rgba(255,210,140,0.15)');
+    ctx.fillStyle = bodyFill;
+    ctx.fill();
+    ctx.restore();
+
+    // --- 肚皮亮色 ---
+    ctx.save();
+    ctx.beginPath();
+    for (let i = 0; i <= numSpine; i++) {
+      const p = spinePoints[i];
+      const bellyFrac = i / numSpine;
+      const bellyNarrow = 1 - Math.pow(Math.abs(bellyFrac - 0.55) * 2.5, 2.5);
+      const bellyThick = p.thick * 0.65 * Math.max(0.1, bellyNarrow);
+      if (i === 0) ctx.moveTo(p.x, p.y + p.thick * 0.1);
+      else ctx.lineTo(p.x, p.y + bellyThick);
+    }
+    for (let i = numSpine; i >= 0; i--) {
+      const p = spinePoints[i];
+      ctx.lineTo(p.x, p.y + p.thick * 0.1);
+    }
+    ctx.closePath();
+    const bellyFill = ctx.createLinearGradient(fishX, fishY, fishX, fishY + bodyH * 0.5);
+    bellyFill.addColorStop(0, 'rgba(255,240,210,0.35)');
+    bellyFill.addColorStop(0.5, 'rgba(255,220,190,0.25)');
+    bellyFill.addColorStop(1, 'rgba(255,240,220,0.1)');
+    ctx.fillStyle = bellyFill;
+    ctx.fill();
+    ctx.restore();
+
+    // --- 轮廓线 ---
+    ctx.strokeStyle = 'rgba(255,120,50,0.55)';
+    ctx.lineWidth = 2.5;
+    ctx.shadowColor = 'rgba(255,100,30,0.5)';
+    ctx.shadowBlur = 14;
+
+    // 上轮廓（含圆头）
+    ctx.beginPath();
+    for (let i = 0; i <= numSpine; i++) {
+      const p = spinePoints[i];
+      if (i === 0) ctx.moveTo(p.x, p.y - p.thick);
+      else ctx.lineTo(p.x, p.y - p.thick);
+    }
+    ctx.quadraticCurveTo(headP.x + dir * bodyLen * 0.08, headP.y, headTipX, headP.y + bodyH * 0.02);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.quadraticCurveTo(headP.x + dir * bodyLen * 0.08, headP.y + bodyH * 0.04, headP.x, headP.y + headP.thick);
+    for (let i = numSpine; i >= 0; i--) {
+      const p = spinePoints[i];
+      if (i === numSpine) ctx.moveTo(p.x, p.y + p.thick);
+      else ctx.lineTo(p.x, p.y + p.thick);
+    }
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // --- 尾鳍：金鱼招牌大扇尾 ---
+    const tailBase = spinePoints[0];
+    const tailFlutter = Math.sin(swimPhase * 3.2) * 0.55;
+    const tailLen = bodyLen * 0.65;
+    // 尾鳍填充
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(tailBase.x, tailBase.y);
+    ctx.quadraticCurveTo(
+      tailBase.x - dir * tailLen * 0.3, tailBase.y - bodyH * 0.55 + tailFlutter * bodyH * 0.2,
+      tailBase.x - dir * tailLen * 0.5, tailBase.y - bodyH * 0.7 + tailFlutter * bodyH * 0.4
+    );
+    ctx.quadraticCurveTo(
+      tailBase.x - dir * tailLen * 0.7, tailBase.y - bodyH * 0.65 + tailFlutter * bodyH * 0.35,
+      tailBase.x - dir * tailLen, tailBase.y - bodyH * 0.35 + tailFlutter * bodyH * 0.5
+    );
+    ctx.quadraticCurveTo(
+      tailBase.x - dir * tailLen * 0.7, tailBase.y + tailFlutter * bodyH * 0.15,
+      tailBase.x - dir * tailLen * 0.5, tailBase.y + bodyH * 0.65 + tailFlutter * bodyH * 0.45
+    );
+    ctx.quadraticCurveTo(
+      tailBase.x - dir * tailLen * 0.3, tailBase.y + bodyH * 0.5 + tailFlutter * bodyH * 0.25,
+      tailBase.x, tailBase.y
+    );
+    ctx.closePath();
+    const tailFill = ctx.createLinearGradient(tailBase.x, tailBase.y - bodyH * 0.5, tailBase.x, tailBase.y + bodyH * 0.5);
+    tailFill.addColorStop(0, 'rgba(255,140,60,0.0)');
+    tailFill.addColorStop(0.3, 'rgba(255,120,30,0.35)');
+    tailFill.addColorStop(0.6, 'rgba(255,90,15,0.45)');
+    tailFill.addColorStop(1, 'rgba(255,150,70,0.0)');
+    ctx.fillStyle = tailFill;
+    ctx.fill();
+    ctx.restore();
+
+    // 尾鳍脉络
+    ctx.strokeStyle = 'rgba(255,120,40,0.5)';
+    ctx.lineWidth = 1.8;
+    ctx.shadowColor = 'rgba(255,100,30,0.45)';
+    ctx.shadowBlur = 8;
+    for (let fi = 0; fi < 7; fi++) {
+      ctx.beginPath();
+      const fAngle = (fi - 3) * 0.25;
+      const wave = Math.sin(swimPhase * 3 + fi * 1.0) * 0.3;
+      ctx.moveTo(tailBase.x, tailBase.y);
+      ctx.quadraticCurveTo(
+        tailBase.x - dir * tailLen * 0.4, tailBase.y + (fAngle + wave) * bodyH * 0.5,
+        tailBase.x - dir * tailLen * 0.85, tailBase.y + (fAngle + wave + tailFlutter) * bodyH * 0.7
+      );
+      ctx.stroke();
+    }
+    ctx.shadowBlur = 0;
+
+    // --- 背鳍：金鱼高背鳍 ---
+    ctx.save();
+    ctx.beginPath();
+    const dorsalStart = Math.floor(numSpine * 0.25);
+    const dorsalEnd = Math.floor(numSpine * 0.78);
+    for (let i = dorsalStart; i <= dorsalEnd; i++) {
+      const p = spinePoints[i];
+      const frac = (i - dorsalStart) / (dorsalEnd - dorsalStart);
+      const finH = bodyH * 0.42 * Math.sin(frac * Math.PI) * (1 + 0.3 * Math.sin(frac * 4 + swimPhase * 2.5));
+      const bx = p.x;
+      const by = p.y - p.thick - finH;
+      if (i === dorsalStart) ctx.moveTo(bx, by);
+      else ctx.lineTo(bx, by);
+    }
+    for (let i = dorsalEnd; i >= dorsalStart; i--) {
+      const p = spinePoints[i];
+      ctx.lineTo(p.x, p.y - p.thick);
+    }
+    ctx.closePath();
+    const dorsalFill = ctx.createLinearGradient(fishX, fishY - bodyH * 0.8, fishX, fishY);
+    dorsalFill.addColorStop(0, 'rgba(255,180,100,0.15)');
+    dorsalFill.addColorStop(0.5, 'rgba(255,120,40,0.35)');
+    dorsalFill.addColorStop(1, 'rgba(255,80,20,0.1)');
+    ctx.fillStyle = dorsalFill;
+    ctx.fill();
+    ctx.restore();
+
+    ctx.strokeStyle = 'rgba(255,120,40,0.5)';
+    ctx.lineWidth = 1.6;
+    ctx.shadowColor = 'rgba(255,100,30,0.4)';
+    ctx.shadowBlur = 6;
+    ctx.beginPath();
+    for (let i = dorsalStart; i <= dorsalEnd; i++) {
+      const p = spinePoints[i];
+      const frac = (i - dorsalStart) / (dorsalEnd - dorsalStart);
+      const finH = bodyH * 0.42 * Math.sin(frac * Math.PI) * (1 + 0.3 * Math.sin(frac * 4 + swimPhase * 2.5));
+      if (i === dorsalStart) ctx.moveTo(p.x, p.y - p.thick - finH);
+      else ctx.lineTo(p.x, p.y - p.thick - finH);
+    }
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // --- 胸鳍：圆润 ---
+    ctx.save();
+    const pectIdx = Math.floor(numSpine * 0.58);
+    const pectP = spinePoints[pectIdx];
+    const pectFlap = Math.sin(swimPhase * 3) * 0.55;
+    ctx.beginPath();
+    ctx.moveTo(pectP.x, pectP.y + pectP.thick * 0.4);
+    ctx.quadraticCurveTo(
+      pectP.x + dir * bodyLen * 0.1, pectP.y + pectP.thick * 0.4 + bodyH * 0.35 + pectFlap * bodyH * 0.2,
+      pectP.x + dir * bodyLen * 0.06, pectP.y + pectP.thick * 0.4 + bodyH * 0.5 + pectFlap * bodyH * 0.3
+    );
+    ctx.quadraticCurveTo(
+      pectP.x + dir * bodyLen * 0.02, pectP.y + pectP.thick * 0.4 + bodyH * 0.3 + pectFlap * bodyH * 0.15,
+      pectP.x, pectP.y + pectP.thick * 0.4
+    );
+    ctx.closePath();
+    const pectFill = ctx.createLinearGradient(pectP.x, pectP.y, pectP.x, pectP.y + bodyH * 0.5);
+    pectFill.addColorStop(0, 'rgba(255,160,100,0.15)');
+    pectFill.addColorStop(0.5, 'rgba(255,100,30,0.35)');
+    pectFill.addColorStop(1, 'rgba(255,160,100,0.05)');
+    ctx.fillStyle = pectFill;
+    ctx.fill();
+    ctx.restore();
+
+    ctx.strokeStyle = 'rgba(255,120,40,0.45)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(pectP.x, pectP.y + pectP.thick * 0.4);
+    ctx.quadraticCurveTo(
+      pectP.x + dir * bodyLen * 0.08, pectP.y + pectP.thick * 0.4 + bodyH * 0.4 + pectFlap * bodyH * 0.25,
+      pectP.x + dir * bodyLen * 0.04, pectP.y + pectP.thick * 0.4 + bodyH * 0.5 + pectFlap * bodyH * 0.3
+    );
+    ctx.stroke();
+
+    // --- 腹鳍 ---
+    const ventIdx = Math.floor(numSpine * 0.4);
+    const ventP = spinePoints[ventIdx];
+    const ventFlap = Math.sin(swimPhase * 2.8 + 1.2) * 0.5;
+    ctx.strokeStyle = 'rgba(255,120,40,0.4)';
+    ctx.lineWidth = 1.5;
+    ctx.shadowColor = 'rgba(255,100,30,0.3)';
+    ctx.shadowBlur = 5;
+    ctx.beginPath();
+    ctx.moveTo(ventP.x, ventP.y - ventP.thick * 0.35);
+    ctx.quadraticCurveTo(
+      ventP.x + dir * bodyLen * 0.06, ventP.y - ventP.thick * 0.35 - bodyH * 0.3 - ventFlap * bodyH * 0.2,
+      ventP.x + dir * bodyLen * 0.03, ventP.y - ventP.thick * 0.35 - bodyH * 0.45 - ventFlap * bodyH * 0.3
+    );
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // --- 鳃线 ---
+    const gillX = fishX + dir * bodyLen * 0.22;
+    ctx.strokeStyle = 'rgba(255,140,60,0.3)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(gillX, fishY - bodyH * 0.35);
+    ctx.quadraticCurveTo(gillX - dir * bodyLen * 0.012, fishY, gillX, fishY + bodyH * 0.35);
+    ctx.stroke();
+
+    // 鳞片弧线
+    ctx.strokeStyle = 'rgba(255,200,150,0.12)';
+    ctx.lineWidth = 0.7;
+    for (let row = 0; row < 4; row++) {
+      ctx.beginPath();
+      for (let i = 6; i < numSpine - 5; i += 3) {
+        const p = spinePoints[i];
+        const rowOff = (row - 1.5) * bodyH * 0.15;
+        const cy = p.y + rowOff;
+        if (i === 6) ctx.moveTo(p.x - bodyLen * 0.015 * dir, cy);
+        else ctx.lineTo(p.x - bodyLen * 0.015 * dir, cy);
+      }
+      ctx.stroke();
+    }
+
+    // --- 眼睛：金鱼大眼 ---
+    const eyeR = bodyLen * 0.045;
+    const eyeX = fishX + dir * bodyLen * 0.28;
+    const eyeY = fishY - bodyH * 0.12;
+    const eyeGrad = ctx.createRadialGradient(eyeX, eyeY, eyeR * 0.2, eyeX, eyeY, eyeR * 1.1);
+    eyeGrad.addColorStop(0, 'rgba(255,255,255,0.95)');
+    eyeGrad.addColorStop(0.25, 'rgba(255,255,200,0.7)');
+    eyeGrad.addColorStop(0.6, 'rgba(255,140,40,0.35)');
+    eyeGrad.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.beginPath();
+    ctx.arc(eyeX, eyeY, eyeR * 1.1, 0, Math.PI * 2);
+    ctx.fillStyle = eyeGrad;
+    ctx.fill();
+    // 瞳孔
+    ctx.beginPath();
+    ctx.arc(eyeX + dir * eyeR * 0.3, eyeY, eyeR * 0.42, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(8,4,16,0.85)';
+    ctx.fill();
+    // 高光
+    ctx.beginPath();
+    ctx.arc(eyeX + dir * eyeR * 0.55, eyeY - eyeR * 0.35, eyeR * 0.22, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    ctx.fill();
+
+    // --- 嘴：小圆嘴 ---
+    const mouthX = headTipX - dir * bodyLen * 0.015;
+    ctx.strokeStyle = 'rgba(255,120,40,0.35)';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(mouthX, fishY - bodyH * 0.08);
+    ctx.quadraticCurveTo(mouthX + dir * bodyLen * 0.02, fishY, mouthX, fishY + bodyH * 0.08);
+    ctx.stroke();
+
+    // --- 头顶小肉瘤（金鱼特征） ---
+    ctx.fillStyle = 'rgba(255,160,100,0.25)';
+    ctx.beginPath();
+    const wenX = fishX + dir * bodyLen * 0.34;
+    const wenY = fishY - bodyH * 0.42;
+    ctx.arc(wenX, wenY, bodyLen * 0.03, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(wenX + dir * bodyLen * 0.02, wenY - bodyLen * 0.01, bodyLen * 0.022, 0, Math.PI * 2);
+    ctx.fill();
+
+    // --- 环绕星光粒子 ---
+    for (let i = 0; i < 14; i++) {
+      const pa = (elapsed * 0.0018 + i * 0.45) % (Math.PI * 2);
+      const pd = bodyLen * 0.35 + Math.sin(elapsed * 0.004 + i) * bodyLen * 0.12;
+      const px = fishX + Math.cos(pa) * pd * 0.8;
+      const py = fishY + Math.sin(pa) * pd * 0.45;
+      const ps = 1.0 + Math.sin(elapsed * 0.007 + i * 0.7) * 0.8;
+
+      ctx.save();
+      ctx.globalAlpha = (0.2 + Math.sin(elapsed * 0.005 + i) * 0.18) * alpha;
+      ctx.beginPath();
+      ctx.arc(px, py, ps, 0, Math.PI * 2);
+      ctx.fillStyle = `hsl(${30 + i * 18}, 90%, 65%)`;
+      ctx.fill();
+      ctx.shadowColor = `hsl(${30 + i * 18}, 90%, 65%)`;
+      ctx.shadowBlur = ps * 3;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.restore();
+    }
+
+    // 气泡
+    for (let i = 0; i < 6; i++) {
+      const bubblePhase = (elapsed * 0.0012 + i * 0.65) % 1;
+      const bx = fishX + dir * (bodyLen * 0.2 + Math.sin(bubblePhase * 5 + i) * bodyLen * 0.1);
+      const by = fishY - bubblePhase * bodyLen * 0.3 + Math.cos(bubblePhase * 3 + i) * bodyLen * 0.06;
+      const br = (1.8 + i * 1.3) * (1 - bubblePhase * 0.8);
+      const ba = (1 - bubblePhase) * 0.45;
+
+      ctx.save();
+      ctx.globalAlpha = ba * alpha;
+      ctx.beginPath();
+      ctx.arc(bx, by, br, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(180, 230, 255, 0.5)';
+      ctx.lineWidth = 0.9;
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(bx - br * 0.3, by - br * 0.3, br * 0.25, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255,255,255,0.4)';
+      ctx.fill();
+      ctx.restore();
+    }
+
+    ctx.restore();
+  }
+
   function draw() {
     const width = canvas.clientWidth;
     const height = canvas.clientHeight;
@@ -703,8 +1149,35 @@
         tilt: orbitTilt,
         alpha: nodeAlpha
       });
+      
+      // 关联节点及选中节点下方显示知识点名称
+      if ((isRelated || isSelected) && nodeProgress > 0.05) {
+        const topic = byId.get(node.id);
+        if (topic) {
+          const labelText = topic.name.length > 8 ? topic.name.slice(0, 7) + '…' : topic.name;
+          const labelY = node.sy + nodeRadius + 14;
+          ctx.save();
+          ctx.globalAlpha = Math.min(1, nodeProgress * 1.2) * nodeAlpha;
+          ctx.font = 'bold 10px "Inter", "PingFang SC", "Microsoft YaHei", sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'top';
+          // 文字阴影，增强可读性
+          ctx.shadowColor = 'rgba(0,0,0,0.7)';
+          ctx.shadowBlur = 4;
+          ctx.fillStyle = 'rgba(255,255,255,0.9)';
+          ctx.fillText(labelText, node.sx, labelY);
+          ctx.shadowBlur = 0;
+          ctx.restore();
+        }
+      }
+      
       ctx.restore();
     });
+
+    // 小鱼彩蛋
+    if (state.fishActive) {
+      drawFish(ctx, width, height);
+    }
 
     document.querySelector("#visibleCount").textContent = state.projected.length;
     document.querySelector("#edgeCount").textContent = dependencies.filter(d => state.visibleIds.has(d.topicId) && state.visibleIds.has(d.prerequisiteId)).length;
@@ -755,7 +1228,14 @@
       syncFilters();
     }
     renderDetail(topic);
-    detailPanel.classList.add("is-open");
+    // 手机端：不自动弹面板，显示底部把手让用户手动上滑查看
+    const isMobile = window.innerWidth <= 720;
+    if (isMobile) {
+      detailPanel.classList.remove("is-open");
+      detailPanel.classList.add("show-handle");
+    } else {
+      detailPanel.classList.add("is-open");
+    }
     searchResults.hidden = true;
     searchInput.blur();
     draw();
@@ -882,9 +1362,25 @@
     state.isAnimating = false;
     state.animationFrame = 0;
     state.animatedEdges.clear();
+    state.fishActive = false;
+    if (state.panelTimeout) { clearTimeout(state.panelTimeout); state.panelTimeout = null; }
     detailPanel.classList.remove("is-open");
+    detailPanel.classList.remove("show-handle");
     document.querySelector("#emptyDetail").hidden = false;
     document.querySelector("#nodeDetail").hidden = true;
+    draw();
+  }
+
+  function triggerFishEasterEgg() {
+    clearSelection();
+    state.fishActive = true;
+    state.fishStartTime = state.time;
+    state.fishPhase = 0;
+    // 8秒后自动消失
+    setTimeout(() => {
+      state.fishActive = false;
+      draw();
+    }, 8000);
     draw();
   }
 
@@ -962,19 +1458,39 @@
   searchInput.addEventListener("input", () => {
     const query = searchInput.value.trim().toLowerCase();
     if (!query) { searchResults.hidden = true; return; }
-    const results = topics.filter(t => [t.name, t.subject, t.domain, t.description].some(v => v.toLowerCase().includes(query))).slice(0, 9);
+    
+    // 小鱼彩蛋
+    if (query === "小鱼") {
+      searchResults.innerHTML = '<button class="search-result fish-easter-egg" type="button" data-id="__fish__" style="--subject-color:hsl(200,80%,55%)"><i></i><span>小鱼</span><small>彩蛋 · 点击试试</small></button>';
+      searchResults.hidden = false;
+      return;
+    }
+    
+    const results = topics.filter(t => [t.name, t.subject, t.domain, t.description].some(v => v && v.toLowerCase().includes(query))).slice(0, 9);
     searchResults.innerHTML = results.length ? results.map(topic => `<button class="search-result" type="button" data-id="${topic.id}" style="--subject-color:${cssColor(topic.subject)}"><i></i><span>${topic.name}</span><small>${topic.grade}年级 · ${topic.subject}</small></button>`).join("") : '<div style="padding:18px;text-align:center;color:var(--muted);font-size:12px">没有找到相关知识点</div>';
     searchResults.hidden = false;
   });
   searchResults.addEventListener("click", event => {
     const button = event.target.closest("[data-id]");
     if (button) {
+      if (button.dataset.id === "__fish__") {
+        triggerFishEasterEgg();
+        searchResults.hidden = true;
+        searchInput.value = "";
+        searchInput.blur();
+        return;
+      }
       state.searchedId = button.dataset.id;
       selectTopic(button.dataset.id);
     }
   });
-  document.addEventListener("click", event => {
-    if (!event.target.closest(".search-wrap")) searchResults.hidden = true;
+  document.addEventListener("pointerdown", event => {
+    // 延迟检查，避免和 input 事件竞态
+    setTimeout(() => {
+      if (!event.target.closest(".search-wrap") && !searchInput.matches(":focus")) {
+        searchResults.hidden = true;
+      }
+    }, 150);
   });
   document.addEventListener("keydown", event => {
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
@@ -993,6 +1509,26 @@
     draw();
   });
   document.querySelector("#closeDetail").addEventListener("click", clearSelection);
+
+  // 手机端底部把手：点击或上滑打开面板
+  const panelHandle = document.getElementById("panelHandle");
+  if (panelHandle) {
+    let touchStartY = 0;
+    panelHandle.addEventListener("click", () => {
+      detailPanel.classList.remove("show-handle");
+      detailPanel.classList.add("is-open");
+    });
+    panelHandle.addEventListener("touchstart", (e) => {
+      touchStartY = e.touches[0].clientY;
+    }, { passive: true });
+    panelHandle.addEventListener("touchend", (e) => {
+      const dy = touchStartY - e.changedTouches[0].clientY;
+      if (dy > 20) {
+        detailPanel.classList.remove("show-handle");
+        detailPanel.classList.add("is-open");
+      }
+    });
+  }
 
   // 菜单栏折叠/展开
   detailPanel.addEventListener("click", event => {

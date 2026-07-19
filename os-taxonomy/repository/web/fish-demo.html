@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>小鱼彩蛋 · 灵动版</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0a0e17; color: #ccc; font-family: system-ui, sans-serif; display: flex; flex-direction: column; align-items: center; padding: 40px 20px; min-height: 100vh; }
+  h1 { color: #fff; margin-bottom: 8px; font-size: 24px; }
+  .sub { color: #667; margin-bottom: 32px; font-size: 13px; }
+  .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; max-width: 760px; width: 100%; }
+  .card { background: #111620; border: 1px solid #1e2a3a; border-radius: 12px; padding: 16px; text-align: center; }
+  .card h3 { color: #fff; margin-bottom: 4px; font-size: 15px; }
+  .card .desc { color: #667; font-size: 11px; margin-bottom: 12px; line-height: 1.5; }
+  .card canvas { width: 100%; height: 280px; border-radius: 8px; background: #080c14; }
+  .pick { margin-top: 36px; display: flex; gap: 16px; }
+  .pick button { padding: 10px 32px; border: 1px solid #2a3a5a; border-radius: 8px; background: #111620; color: #aac; font-size: 14px; cursor: pointer; transition: all 0.2s; }
+  .pick button:hover { background: #1a2a40; border-color: #4a6aaa; color: #fff; }
+</style>
+</head>
+<body>
+<h1>小鱼彩蛋 · 灵动版</h1>
+<p class="sub">有生命感，会呼吸，会扭动</p>
+<div class="grid">
+  <div class="card">
+    <h3>A · 能量飘带</h3>
+    <p class="desc">多层半透明柔光曲线叠加<br>身体扭动，鳍尾如丝带飘舞</p>
+    <canvas id="cA" width="360" height="280"></canvas>
+  </div>
+  <div class="card">
+    <h3>B · 游动精灵</h3>
+    <p class="desc">清晰轮廓 + 扭动身体 + 飘逸尾鳍<br>像一只真实的小鱼在游</p>
+    <canvas id="cB" width="360" height="280"></canvas>
+  </div>
+</div>
+<div class="pick">
+  <button onclick="alert('选了 A，告诉云韵吧')">选 A · 能量飘带</button>
+  <button onclick="alert('选了 B，告诉云韵吧')">选 B · 游动精灵</button>
+</div>
+
+<script>
+// ============= A: 能量飘带 =============
+function drawStyleA(ctx, w, h) {
+  const t = Date.now() * 0.001;
+  ctx.clearRect(0, 0, w, h);
+  
+  const cx = w / 2, cy = h / 2;
+  const bodyLen = 200;
+  const swimPhase = t * 2.5;
+  const swimX = cx + Math.sin(swimPhase * 0.7) * 30;
+  const swimY = cy + Math.sin(swimPhase * 0.5) * 20;
+  
+  // 光晕
+  const gg = ctx.createRadialGradient(swimX, swimY, 20, swimX, swimY, 180);
+  gg.addColorStop(0, 'rgba(255,180,80,0.10)');
+  gg.addColorStop(0.5, 'rgba(255,120,50,0.04)');
+  gg.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(swimX, swimY, 180, 0, Math.PI * 2); ctx.fill();
+  
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  
+  const bodyWave = Math.sin(swimPhase) * 0.25;
+  const bodyH = 35;
+  const dir = Math.cos(swimPhase * 0.7) > 0 ? 1 : -1;
+  
+  // 多层半透明飘带叠出鱼形
+  const layers = [
+    { alpha: 0.15, width: 6, hue: 25, sat: 90, light: 55 },
+    { alpha: 0.22, width: 4.5, hue: 30, sat: 85, light: 60 },
+    { alpha: 0.30, width: 3.2, hue: 35, sat: 80, light: 65 },
+    { alpha: 0.40, width: 2.0, hue: 40, sat: 75, light: 70 },
+    { alpha: 0.55, width: 1.2, hue: 45, sat: 70, light: 75 },
+  ];
+  
+  layers.forEach(layer => {
+    ctx.globalAlpha = layer.alpha;
+    ctx.shadowColor = `hsl(${layer.hue}, ${layer.sat}%, ${layer.light}%)`;
+    ctx.shadowBlur = layer.width * 5;
+    
+    // 身体轮廓 - 上
+    ctx.beginPath();
+    ctx.strokeStyle = `hsl(${layer.hue}, ${layer.sat}%, ${layer.light}%)`;
+    ctx.lineWidth = layer.width;
+    for (let i = 0; i <= 40; i++) {
+      const frac = i / 40;
+      const bx = swimX + (frac - 0.5) * bodyLen * dir;
+      const undulation = Math.sin(frac * Math.PI * 2.5 + swimPhase) * bodyH * 0.45 * (1 - Math.abs(frac - 0.5) * 1.5);
+      const thick = (1 - Math.pow(Math.abs(frac - 0.5) * 1.8, 2)) * bodyH * 0.65;
+      const by = swimY - thick + undulation;
+      if (i === 0) ctx.moveTo(bx, by);
+      else ctx.lineTo(bx, by);
+    }
+    ctx.stroke();
+    
+    // 身体轮廓 - 下
+    ctx.beginPath();
+    ctx.strokeStyle = `hsl(${layer.hue}, ${layer.sat}%, ${layer.light}%)`;
+    for (let i = 0; i <= 40; i++) {
+      const frac = i / 40;
+      const bx = swimX + (frac - 0.5) * bodyLen * dir;
+      const undulation = Math.sin(frac * Math.PI * 2.5 + swimPhase) * bodyH * 0.45 * (1 - Math.abs(frac - 0.5) * 1.5);
+      const thick = (1 - Math.pow(Math.abs(frac - 0.5) * 1.8, 2)) * bodyH * 0.65;
+      const by = swimY + thick + undulation;
+      if (i === 0) ctx.moveTo(bx, by);
+      else ctx.lineTo(bx, by);
+    }
+    ctx.stroke();
+    
+    // 尾鳍 - 飘舞
+    const tailBase = swimX - dir * bodyLen * 0.5;
+    const tailBaseY = swimY + Math.sin(swimPhase) * bodyH * 0.15;
+    for (let fi = 0; fi < 3; fi++) {
+      ctx.beginPath();
+      const fAngle = (fi - 1) * 0.35;
+      const fLen = bodyLen * 0.45;
+      const waveOffset = Math.sin(swimPhase * 3 + fi * 1.5) * 0.3;
+      ctx.moveTo(tailBase, tailBaseY);
+      ctx.quadraticCurveTo(
+        tailBase - dir * fLen * 0.5, tailBaseY + fAngle * bodyH * 0.5 + waveOffset * bodyH * 0.3,
+        tailBase - dir * fLen, tailBaseY + fAngle * bodyH * 0.8 + waveOffset * bodyH * 0.5
+      );
+      ctx.stroke();
+    }
+    
+    // 背鳍 - 飘动
+    ctx.beginPath();
+    for (let i = 0; i <= 20; i++) {
+      const frac = i / 20;
+      const bx = swimX + (frac - 0.2) * bodyLen * 0.5 * dir;
+      const finWave = Math.sin(frac * 5 + swimPhase * 2) * bodyH * 0.35;
+      const by = swimY - bodyH * 0.5 - finWave * (1 - frac * 0.7);
+      if (i === 0) ctx.moveTo(bx, by);
+      else ctx.lineTo(bx, by);
+    }
+    ctx.stroke();
+    
+    ctx.shadowBlur = 0;
+  });
+  ctx.globalAlpha = 1;
+  
+  // 眼睛
+  const eyeX = swimX + dir * bodyLen * 0.3;
+  const eyeY = swimY - bodyH * 0.15;
+  const eyeGrad = ctx.createRadialGradient(eyeX, eyeY, 2, eyeX, eyeY, 10);
+  eyeGrad.addColorStop(0, 'rgba(255,255,255,0.95)');
+  eyeGrad.addColorStop(0.3, 'rgba(255,255,200,0.7)');
+  eyeGrad.addColorStop(0.7, 'rgba(255,150,50,0.3)');
+  eyeGrad.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.beginPath(); ctx.arc(eyeX, eyeY, 10, 0, Math.PI * 2);
+  ctx.fillStyle = eyeGrad; ctx.fill();
+  ctx.beginPath(); ctx.arc(eyeX + dir * 3, eyeY, 3.5, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(10,5,20,0.85)'; ctx.fill();
+  ctx.beginPath(); ctx.arc(eyeX + dir * 4.5, eyeY - 3, 1.8, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(255,255,255,0.9)'; ctx.fill();
+  
+  // 亮点
+  for (let i = 0; i < 15; i++) {
+    const pa = (t * 0.8 + i * 0.4) % (Math.PI * 2);
+    const pd = 50 + Math.sin(t * 2 + i) * 20;
+    const px = swimX + Math.cos(pa) * pd;
+    const py = swimY + Math.sin(pa) * pd * 0.5;
+    ctx.beginPath();
+    ctx.arc(px, py, 1.2, 0, Math.PI * 2);
+    ctx.fillStyle = `hsla(${35 + i * 15}, 85%, 70%, ${0.3 + Math.sin(t * 3 + i) * 0.2})`;
+    ctx.fill();
+  }
+}
+
+// ============= B: 游动精灵 =============
+function drawStyleB(ctx, w, h) {
+  const t = Date.now() * 0.001;
+  ctx.clearRect(0, 0, w, h);
+  
+  const cx = w / 2, cy = h / 2;
+  const bodyLen = 180;
+  const swimPhase = t * 2.2;
+  const swimX = cx + Math.sin(swimPhase * 0.6) * 35;
+  const swimY = cy + Math.sin(swimPhase * 0.45) * 18;
+  const dir = Math.cos(swimPhase * 0.6) > 0 ? 1 : -1;
+  const bodyH = 30;
+  
+  // 光晕
+  const gg = ctx.createRadialGradient(swimX, swimY, 15, swimX, swimY, 170);
+  gg.addColorStop(0, 'rgba(255,180,80,0.08)');
+  gg.addColorStop(0.5, 'rgba(255,100,50,0.03)');
+  gg.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(swimX, swimY, 170, 0, Math.PI * 2); ctx.fill();
+  
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  
+  // 生成身体脊柱上的点（带扭动）
+  const spinePoints = [];
+  const numSpine = 30;
+  for (let i = 0; i <= numSpine; i++) {
+    const frac = i / numSpine;
+    const sx = swimX + (frac - 0.5) * bodyLen * dir;
+    const undulation = Math.sin(frac * Math.PI * 2.2 + swimPhase) * bodyH * 0.55 * (1 - Math.abs(frac - 0.5) * 1.2);
+    const thick = (1 - Math.pow(Math.abs(frac - 0.5) * 1.7, 2.5)) * bodyH;
+    spinePoints.push({ x: sx, y: swimY + undulation, thick });
+  }
+  
+  // 身体填充
+  ctx.save();
+  ctx.beginPath();
+  // 上轮廓
+  for (let i = 0; i <= numSpine; i++) {
+    const p = spinePoints[i];
+    if (i === 0) ctx.moveTo(p.x, p.y - p.thick);
+    else ctx.lineTo(p.x, p.y - p.thick);
+  }
+  // 头部圆润
+  const head = spinePoints[numSpine];
+  ctx.lineTo(head.x + dir * 8, head.y);
+  // 下轮廓
+  for (let i = numSpine; i >= 0; i--) {
+    const p = spinePoints[i];
+    ctx.lineTo(p.x, p.y + p.thick);
+  }
+  ctx.closePath();
+  const bodyFill = ctx.createLinearGradient(swimX - bodyLen * 0.5, swimY, swimX + bodyLen * 0.5, swimY);
+  bodyFill.addColorStop(0, 'rgba(255,120,50,0.0)');
+  bodyFill.addColorStop(0.2, 'rgba(255,150,70,0.25)');
+  bodyFill.addColorStop(0.5, 'rgba(255,190,110,0.4)');
+  bodyFill.addColorStop(0.8, 'rgba(255,160,90,0.2)');
+  bodyFill.addColorStop(1, 'rgba(200,130,80,0.05)');
+  ctx.fillStyle = bodyFill;
+  ctx.fill();
+  ctx.restore();
+  
+  // 轮廓线
+  ctx.strokeStyle = 'rgba(255,180,120,0.55)';
+  ctx.lineWidth = 2.5;
+  ctx.shadowColor = 'rgba(255,160,100,0.6)';
+  ctx.shadowBlur = 14;
+  
+  // 上轮廓
+  ctx.beginPath();
+  for (let i = 0; i <= numSpine; i++) {
+    const p = spinePoints[i];
+    if (i === 0) ctx.moveTo(p.x, p.y - p.thick);
+    else ctx.lineTo(p.x, p.y - p.thick);
+  }
+  ctx.stroke();
+  
+  // 下轮廓
+  ctx.beginPath();
+  for (let i = 0; i <= numSpine; i++) {
+    const p = spinePoints[i];
+    if (i === 0) ctx.moveTo(p.x, p.y + p.thick);
+    else ctx.lineTo(p.x, p.y + p.thick);
+  }
+  ctx.stroke();
+  
+  // 尾鳍 - 大幅飘舞
+  const tailBase = spinePoints[0];
+  const tailFlutter = Math.sin(swimPhase * 3.5) * 0.4;
+  for (let fi = 0; fi < 5; fi++) {
+    ctx.beginPath();
+    const fAngle = (fi - 2) * 0.28;
+    const fLen = bodyLen * 0.5;
+    const wave = Math.sin(swimPhase * 3 + fi * 1.2) * 0.25;
+    ctx.moveTo(tailBase.x, tailBase.y);
+    ctx.quadraticCurveTo(
+      tailBase.x - dir * fLen * 0.45, tailBase.y + (fAngle + wave) * bodyH * 0.5,
+      tailBase.x - dir * fLen, tailBase.y + (fAngle + wave + tailFlutter) * bodyH * 0.8
+    );
+    ctx.stroke();
+  }
+  
+  // 背鳍 - 波浪
+  ctx.beginPath();
+  for (let i = 0; i <= 25; i++) {
+    const frac = i / 25;
+    const si = Math.floor(frac * numSpine);
+    const sp = spinePoints[Math.min(si, numSpine)];
+    const bx = sp.x + (frac - 0.3) * bodyLen * 0.1 * dir;
+    const finWave = Math.sin(frac * 6 + swimPhase * 2.5) * bodyH * 0.4 * (1 - frac * 0.6);
+    const by = sp.y - sp.thick - finWave;
+    if (i === 0) ctx.moveTo(bx, by);
+    else ctx.lineTo(bx, by);
+  }
+  ctx.stroke();
+  
+  // 胸鳍 - 煽动
+  ctx.beginPath();
+  const pectIdx = Math.floor(numSpine * 0.65);
+  const pectP = spinePoints[pectIdx];
+  const pectFlap = Math.sin(swimPhase * 3) * 0.5;
+  ctx.moveTo(pectP.x, pectP.y + pectP.thick * 0.5);
+  ctx.quadraticCurveTo(
+    pectP.x + dir * 15, pectP.y + pectP.thick * 0.5 + bodyH * 0.5 + pectFlap * bodyH * 0.3,
+    pectP.x + dir * 8, pectP.y + pectP.thick * 0.5 + bodyH * 0.7 + pectFlap * bodyH * 0.4
+  );
+  ctx.stroke();
+  
+  ctx.shadowBlur = 0;
+  
+  // 鳃线
+  const gillX = swimX + dir * bodyLen * 0.25;
+  ctx.strokeStyle = 'rgba(255,180,120,0.35)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(gillX, swimY - bodyH * 0.45);
+  ctx.quadraticCurveTo(gillX - dir * 3, swimY, gillX, swimY + bodyH * 0.45);
+  ctx.stroke();
+  
+  // 眼睛
+  const eyeX = swimX + dir * bodyLen * 0.32;
+  const eyeY = swimY - bodyH * 0.1;
+  const eyeGrad = ctx.createRadialGradient(eyeX, eyeY, 2, eyeX, eyeY, 9);
+  eyeGrad.addColorStop(0, 'rgba(255,255,255,0.95)');
+  eyeGrad.addColorStop(0.3, 'rgba(255,255,200,0.7)');
+  eyeGrad.addColorStop(0.7, 'rgba(255,150,50,0.3)');
+  eyeGrad.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.beginPath(); ctx.arc(eyeX, eyeY, 9, 0, Math.PI * 2);
+  ctx.fillStyle = eyeGrad; ctx.fill();
+  ctx.beginPath(); ctx.arc(eyeX + dir * 2.5, eyeY, 3.2, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(10,5,20,0.85)'; ctx.fill();
+  ctx.beginPath(); ctx.arc(eyeX + dir * 4, eyeY - 2.5, 1.6, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(255,255,255,0.9)'; ctx.fill();
+  
+  // 嘴
+  const mouthX = swimX + dir * bodyLen * 0.48;
+  ctx.strokeStyle = 'rgba(255,180,120,0.4)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(mouthX, swimY - bodyH * 0.12);
+  ctx.quadraticCurveTo(mouthX + dir * 5, swimY, mouthX, swimY + bodyH * 0.12);
+  ctx.stroke();
+  
+  // 粒子光点
+  for (let i = 0; i < 12; i++) {
+    const pa = (t * 0.9 + i * 0.5) % (Math.PI * 2);
+    const pd = 45 + Math.sin(t * 2.2 + i) * 18;
+    const px = swimX + Math.cos(pa) * pd;
+    const py = swimY + Math.sin(pa) * pd * 0.5;
+    ctx.beginPath();
+    ctx.arc(px, py, 1.0, 0, Math.PI * 2);
+    ctx.fillStyle = `hsla(${35 + i * 14}, 85%, 70%, ${0.25 + Math.sin(t * 3 + i) * 0.2})`;
+    ctx.fill();
+  }
+}
+
+function animate() {
+  drawStyleA(document.getElementById('cA').getContext('2d'), 360, 280);
+  drawStyleB(document.getElementById('cB').getContext('2d'), 360, 280);
+  requestAnimationFrame(animate);
+}
+animate();
+</script>
+</body>
+</html>

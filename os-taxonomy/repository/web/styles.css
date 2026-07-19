@@ -87,10 +87,50 @@ button:focus-visible, input:focus-visible, select:focus-visible {
 .search-result i { width: 8px; height: 8px; border-radius: 50%; background: var(--subject-color); box-shadow: 0 0 6px var(--subject-color); }
 .search-result span { font-size: 13px; font-weight: 650; color: #ffffff; }
 .search-result small { font-size: 11px; color: #88a0c0; }
+.fish-easter-egg { position: relative; overflow: hidden; }
+.fish-easter-egg::before { content: ""; position: absolute; inset: 0; background: linear-gradient(135deg, rgba(0,180,255,0.15), rgba(0,255,200,0.1), rgba(255,200,50,0.1)); opacity: 0; transition: opacity 0.3s; }
+.fish-easter-egg:hover::before { opacity: 1; }
+.fish-easter-egg i { animation: fishPulse 0.8s ease-in-out infinite; }
+@keyframes fishPulse { 0%, 100% { box-shadow: 0 0 6px var(--subject-color); } 50% { box-shadow: 0 0 14px var(--subject-color), 0 0 24px rgba(0,200,255,0.5); } }
 
 .icon-button { width: 38px; height: 38px; flex: 0 0 auto; border: 0; border-radius: 50%; background: transparent; display: grid; place-items: center; cursor: pointer; }
 .icon-button:hover { background: var(--surface-strong); }
 .icon-button svg { width: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ---------- 用户区 ---------- */
+.user-area {
+  display: flex; align-items: center; gap: 12px;
+  flex: 0 0 auto; margin-left: auto; margin-right: 4px;
+}
+.user-name {
+  font-size: 13px; color: var(--muted); max-width: 100px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.remain-badge {
+  font-size: 11px; padding: 2px 8px; border-radius: 10px;
+  background: rgba(100, 220, 160, 0.12);
+  color: rgb(100, 220, 160); white-space: nowrap;
+}
+.remain-badge.warning {
+  background: rgba(255, 180, 80, 0.12);
+  color: rgb(255, 180, 80);
+}
+.remain-badge.expired {
+  background: rgba(255, 80, 80, 0.12);
+  color: rgb(255, 80, 80);
+}
+.logout-btn {
+  padding: 5px 14px; font-size: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px; color: var(--muted); cursor: pointer;
+  transition: all 0.2s;
+}
+.logout-btn:hover {
+  background: rgba(255, 70, 70, 0.15);
+  border-color: rgba(255, 70, 70, 0.35);
+  color: #ff7b7b;
+}
 
 .workspace { min-height: 0; flex: 1; display: flex; }
 .graph-stage {
@@ -159,6 +199,7 @@ button:focus-visible, input:focus-visible, select:focus-visible {
 .node-tooltip span { color: #a0b0d0; font-size: 12px; }
 
 .detail-panel { width: var(--panel-width); flex: 0 0 var(--panel-width); border-left: 1px solid rgba(100, 130, 180, 0.2); background: rgba(12, 16, 28, 0.75); backdrop-filter: blur(18px) saturate(1.2); -webkit-backdrop-filter: blur(18px) saturate(1.2); box-shadow: -4px 0 24px rgba(0, 0, 0, 0.3); overflow: auto; z-index: 10; }
+.panel-handle { display: none; }
 .empty-detail { min-height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 42px; text-align: center; }
 .empty-detail h2 { margin: 28px 0 10px; font-size: 18px; }
 .empty-detail > p { max-width: 29ch; margin: 0; color: var(--muted); line-height: 1.75; font-size: 13px; }
@@ -267,11 +308,24 @@ button:focus-visible, input:focus-visible, select:focus-visible {
 
 @media (max-width: 720px) {
   :root { --topbar-height: 60px; }
-  .topbar { padding: 0 12px; }
+  .topbar { padding: 0 6px; gap: 6px; }
+  .brand { min-width: auto; gap: 4px; }
   .brand strong { display: none; }
-  .search-wrap { width: auto; flex: 1; }
+  .brand small { display: none; }
+  .brand-mark { width: 26px; height: 26px; }
+  .search-wrap { flex: 1; min-width: 0; }
   .search-wrap kbd { display: none; }
-  .search-wrap input { padding-right: 12px; font-size: 12px; }
+  .search-wrap input { padding-right: 10px; font-size: 12px; }
+  .search-wrap > svg { left: 8px; width: 15px; }
+  .search-wrap input { padding-left: 28px; }
+  .user-area { gap: 3px; margin-left: 2px; margin-right: 0; }
+  .user-name { font-size: 10px; max-width: 40px; }
+  .remain-badge { font-size: 8px; padding: 1px 4px; }
+  .logout-btn { padding: 3px 6px; font-size: 10px; }
+  .icon-button { display: none; }
+  .search-results { left: -6px; right: -6px; }
+  .search-result span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12px; }
+  .search-result small { white-space: nowrap; font-size: 10px; }
   .workspace { position: relative; }
   .filter-bar { left: 10px; right: 10px; transform: none; width: auto; overflow-x: auto; justify-content: flex-start; }
   .filter-bar::-webkit-scrollbar { display: none; }
@@ -281,6 +335,11 @@ button:focus-visible, input:focus-visible, select:focus-visible {
   .legend strong { display: none; }
   .detail-panel { position: absolute; left: 0; right: 0; bottom: 0; width: auto; max-height: 72%; border-left: 0; border-top: 1px solid var(--line); transform: translateY(100%); transition: transform .24s var(--ease); border-radius: 16px 16px 0 0; }
   .detail-panel.is-open { transform: translateY(0); }
+  .detail-panel.show-handle { transform: translateY(calc(100% - 50px)); }
+  .panel-handle { display: none; }
+  .detail-panel.show-handle .panel-handle { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 0 6px; cursor: pointer; -webkit-tap-highlight-color: transparent; user-select: none; }
+  .panel-handle-bar { width: 36px; height: 4px; border-radius: 2px; background: rgba(255,255,255,0.3); }
+  .panel-handle-text { font-size: 11px; color: rgba(255,255,255,0.4); }
   .empty-detail { display: none; }
   .canvas-controls { right: 12px; bottom: 12px; }
 }

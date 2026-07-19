@@ -1,0 +1,396 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>小数探客 · 管理后台</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: oklch(0.06 0.015 260);
+      --surface: oklch(0.14 0.015 260);
+      --surface-strong: oklch(0.20 0.02 260);
+      --ink: oklch(0.94 0.01 95);
+      --muted: oklch(0.55 0.02 95);
+      --line: oklch(0.28 0.02 260);
+      --primary: oklch(0.72 0.18 60);
+      --accent: oklch(0.62 0.18 288);
+      --green: oklch(0.68 0.16 155);
+      --red: oklch(0.62 0.2 20);
+      --radius: 12px;
+      font-family: Inter, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body { height: 100%; }
+
+    body {
+      background: radial-gradient(ellipse at 50% 50%, oklch(0.06 0.015 260) 0%, oklch(0.02 0.005 260) 70%, oklch(0.01 0.003 260) 100%);
+      color: var(--ink);
+      display: flex; flex-direction: column; align-items: center;
+      padding: 40px 20px; overflow-y: auto;
+    }
+
+    /* ---------- 登录面板 ---------- */
+    .login-card {
+      width: 380px; max-width: 92vw;
+      background: rgba(15, 20, 40, 0.82);
+      backdrop-filter: blur(24px) saturate(1.4);
+      border: 1px solid rgba(100, 130, 200, 0.22);
+      border-radius: 20px; padding: 40px 36px;
+      box-shadow: 0 0 60px rgba(80, 120, 220, 0.12), 0 8px 32px rgba(0, 0, 0, 0.5);
+      margin-top: 80px;
+    }
+    .login-card h2 { font-size: 22px; margin-bottom: 6px; }
+    .login-card p { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+    .login-card input {
+      width: 100%; padding: 11px 14px; margin-bottom: 16px;
+      background: rgba(20, 30, 55, 0.7);
+      border: 1px solid rgba(100, 130, 200, 0.2);
+      border-radius: 10px; color: var(--ink); font-size: 15px; outline: none;
+    }
+    .login-card input:focus {
+      border-color: rgba(130, 160, 240, 0.5);
+      box-shadow: 0 0 0 3px rgba(100, 140, 220, 0.12);
+    }
+    .login-card button {
+      width: 100%; padding: 12px 0;
+      background: linear-gradient(135deg, oklch(0.55 0.16 55), oklch(0.65 0.18 50));
+      border: none; border-radius: 10px; color: #fff; font-size: 16px;
+      font-weight: 600; cursor: pointer;
+    }
+    .login-card button:hover { box-shadow: 0 4px 20px rgba(200, 150, 30, 0.3); }
+
+    .msg { font-size: 13px; margin-top: 12px; text-align: center; }
+    .msg.error { color: #ff7b7b; }
+
+    /* ---------- 主面板 ---------- */
+    .dashboard { width: 100%; max-width: 1000px; display: none; }
+    .dashboard.active { display: block; }
+
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 28px; flex-wrap: wrap; gap: 12px;
+    }
+    .topbar h1 { font-size: 22px; }
+    .topbar .actions { display: flex; gap: 10px; align-items: center; }
+    .topbar .badge {
+      font-size: 12px; padding: 4px 10px; border-radius: 6px;
+      background: rgba(255,255,255,0.06); color: var(--muted);
+    }
+
+    .btn {
+      padding: 8px 18px; border-radius: 8px; border: 1px solid var(--line);
+      background: var(--surface-strong); color: var(--ink);
+      font-size: 13px; cursor: pointer; transition: all 0.2s;
+    }
+    .btn:hover { border-color: rgba(130, 160, 240, 0.4); }
+    .btn.primary {
+      background: linear-gradient(135deg, oklch(0.55 0.16 55), oklch(0.65 0.18 50));
+      border: none; font-weight: 600;
+    }
+    .btn.danger { color: var(--red); border-color: rgba(255,70,70,0.3); }
+    .btn.danger:hover { background: rgba(255,70,70,0.1); }
+
+    /* ---------- 卡片 ---------- */
+    .card {
+      background: rgba(15, 20, 40, 0.7);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(100, 130, 200, 0.18);
+      border-radius: var(--radius); padding: 24px; margin-bottom: 20px;
+    }
+    .card h3 { font-size: 16px; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+
+    .stats-row {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 12px; margin-bottom: 20px;
+    }
+    .stat-card {
+      background: rgba(20, 30, 55, 0.6); border-radius: 10px;
+      padding: 16px; text-align: center;
+    }
+    .stat-card .num { font-size: 28px; font-weight: 700; }
+    .stat-card .label { font-size: 12px; color: var(--muted); margin-top: 4px; }
+    .stat-card.green .num { color: var(--green); }
+    .stat-card.yellow .num { color: var(--primary); }
+    .stat-card.blue .num { color: oklch(0.7 0.15 240); }
+
+    /* ---------- 生成码区域 ---------- */
+    .gen-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .gen-row input {
+      width: 80px; padding: 8px 10px; text-align: center;
+      background: rgba(20, 30, 55, 0.7);
+      border: 1px solid rgba(100, 130, 200, 0.2);
+      border-radius: 8px; color: var(--ink); font-size: 14px;
+    }
+    .radio-label { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; color: var(--ink); font-size: 14px; }
+    .radio-label input { width: auto; margin: 0; accent-color: var(--primary); }
+    .code-grid {
+      display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px;
+    }
+    .code-chip {
+      padding: 6px 14px; border-radius: 6px; font-size: 15px;
+      font-weight: 600; letter-spacing: 2px;
+      background: rgba(100, 200, 130, 0.12); color: var(--green);
+      border: 1px solid rgba(100, 200, 130, 0.2);
+      animation: popIn 0.3s var(--ease);
+    }
+    @keyframes popIn {
+      from { transform: scale(0.8); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+
+    /* ---------- 表格 ---------- */
+    table {
+      width: 100%; border-collapse: collapse; font-size: 13px;
+    }
+    th, td {
+      text-align: left; padding: 10px 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    th { color: var(--muted); font-weight: 500; font-size: 12px; }
+    .status-used { color: var(--red); }
+    .status-unused { color: var(--green); }
+    .table-wrap { max-height: 400px; overflow-y: auto; }
+
+    .copy-hint {
+      font-size: 12px; color: var(--muted); margin-top: 4px;
+    }
+  </style>
+</head>
+<body>
+
+<!-- 登录面板 -->
+<div class="login-card" id="loginPanel">
+  <h2>管理后台</h2>
+  <p>请输入管理员密码</p>
+  <input id="adminPwd" type="password" placeholder="管理员密码" autocomplete="off" />
+  <button id="loginBtn">登 录</button>
+  <div class="msg" id="loginMsg"></div>
+</div>
+
+<!-- 主面板 -->
+<div class="dashboard" id="dashboard">
+  <div class="topbar">
+    <h1>管理后台</h1>
+    <div class="actions">
+      <span class="badge" id="serverStatus">● 已连接</span>
+      <button class="btn danger" id="logoutBtn">退出</button>
+    </div>
+  </div>
+
+  <!-- 统计卡片 -->
+  <div class="stats-row" id="statsRow"></div>
+
+  <!-- 生成校验码 -->
+  <div class="card">
+    <h3>生成校验码</h3>
+    <div class="gen-row">
+      <span>类型：</span>
+      <label class="radio-label"><input type="radio" name="codeType" value="day" checked /> 体验卡（1天）</label>
+      <label class="radio-label"><input type="radio" name="codeType" value="year" /> 年卡（365天）</label>
+    </div>
+    <div class="gen-row" style="margin-top:10px">
+      <span>数量：</span>
+      <input id="genCount" type="number" value="10" min="1" max="500" />
+      <button class="btn primary" id="genBtn">生成</button>
+    </div>
+    <div class="code-grid" id="codeGrid"></div>
+    <div class="copy-hint" id="copyHint" style="display:none">点击上方数字可复制</div>
+  </div>
+
+  <!-- 校验码列表 -->
+  <div class="card">
+    <h3>校验码列表</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>校验码</th><th>类型</th><th>状态</th><th>使用者</th><th>使用时间</th><th>生成时间</th></tr></thead>
+        <tbody id="codesTable"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 用户列表 -->
+  <div class="card">
+    <h3>注册用户</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>用户名</th><th>注册时间</th><th>到期时间</th><th>剩余天数</th></tr></thead>
+        <tbody id="usersTable"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+  const ADMIN_PW_KEY = 'admin_pw';
+  let adminPw = localStorage.getItem(ADMIN_PW_KEY);
+
+  // ---------- DOM ----------
+  const loginPanel = document.getElementById('loginPanel');
+  const dashboard = document.getElementById('dashboard');
+  const loginMsg = document.getElementById('loginMsg');
+
+  // ---------- 检查是否已登录 ----------
+  if (adminPw) {
+    loginPanel.style.display = 'none';
+    dashboard.classList.add('active');
+    loadAll();
+  }
+
+  // ---------- 登录 ----------
+  document.getElementById('loginBtn').addEventListener('click', async () => {
+    const pw = document.getElementById('adminPwd').value.trim();
+    if (!pw) { loginMsg.textContent = '请输入密码'; loginMsg.className = 'msg error'; return; }
+
+    // 验证密码
+    try {
+      const res = await fetch('/api/admin/codes', { headers: { 'X-Admin-Password': pw } });
+      if (res.ok) {
+        adminPw = pw;
+        localStorage.setItem(ADMIN_PW_KEY, pw);
+        loginPanel.style.display = 'none';
+        dashboard.classList.add('active');
+        loadAll();
+      } else {
+        loginMsg.textContent = '密码错误';
+        loginMsg.className = 'msg error';
+      }
+    } catch (e) {
+      loginMsg.textContent = '网络错误，请检查服务器是否启动';
+      loginMsg.className = 'msg error';
+    }
+  });
+
+  document.getElementById('adminPwd').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('loginBtn').click();
+  });
+
+  // ---------- 退出 ----------
+  document.getElementById('logoutBtn').addEventListener('click', () => {
+    localStorage.removeItem(ADMIN_PW_KEY);
+    adminPw = null;
+    dashboard.classList.remove('active');
+    loginPanel.style.display = '';
+    document.getElementById('adminPwd').value = '';
+  });
+
+  // ---------- 加载数据 ----------
+  async function loadAll() {
+    await Promise.all([loadStats(), loadCodes(), loadUsers()]);
+  }
+
+  async function loadStats() {
+    try {
+      const [codesRes, usersRes] = await Promise.all([
+        fetch('/api/admin/codes', { headers: { 'X-Admin-Password': adminPw } }),
+        fetch('/api/admin/users', { headers: { 'X-Admin-Password': adminPw } }),
+      ]);
+      const codes = await codesRes.json();
+      const users = await usersRes.json();
+
+      document.getElementById('statsRow').innerHTML = `
+        <div class="stat-card green"><div class="num">${codes.unused}</div><div class="label">未使用校验码</div></div>
+        <div class="stat-card yellow"><div class="num">${codes.used}</div><div class="label">已使用校验码</div></div>
+        <div class="stat-card blue"><div class="num">${users.total}</div><div class="label">注册用户</div></div>
+      `;
+    } catch (e) {
+      document.getElementById('statsRow').innerHTML = '<div class="stat-card"><div class="label">加载失败</div></div>';
+    }
+  }
+
+  async function loadCodes() {
+    try {
+      const res = await fetch('/api/admin/codes', { headers: { 'X-Admin-Password': adminPw } });
+      const data = await res.json();
+      const tbody = document.getElementById('codesTable');
+      if (data.codes.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="color:var(--muted)">暂无校验码</td></tr>';
+        return;
+      }
+      tbody.innerHTML = data.codes.map(c => `
+        <tr>
+          <td style="font-weight:600;letter-spacing:2px">${c.code}</td>
+          <td style="color:${c.type === 'year' ? 'var(--primary)' : 'var(--accent)'}">${c.type_name}</td>
+          <td class="${c.is_used ? 'status-used' : 'status-unused'}">${c.is_used ? '已使用' : '未使用'}</td>
+          <td>${c.used_by || '-'}</td>
+          <td>${c.used_at || '-'}</td>
+          <td>${c.created_at || '-'}</td>
+        </tr>
+      `).join('');
+    } catch (e) {
+      document.getElementById('codesTable').innerHTML = '<tr><td colspan="6">加载失败</td></tr>';
+    }
+  }
+
+  async function loadUsers() {
+    try {
+      const res = await fetch('/api/admin/users', { headers: { 'X-Admin-Password': adminPw } });
+      const data = await res.json();
+      const tbody = document.getElementById('usersTable');
+      if (data.users.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="color:var(--muted)">暂无注册用户</td></tr>';
+        return;
+      }
+      tbody.innerHTML = data.users.map(u => {
+        const expiredClass = u.is_expired ? 'status-used' : 'status-unused';
+        const remainText = u.is_expired ? '已过期' : (u.remaining_days >= 300 ? u.remaining_days + ' 天' : u.remaining_days + ' 天');
+        return `
+        <tr><td>${u.username}</td><td>${u.created_at}</td><td>${u.expires_at || '-'}</td><td class="${expiredClass}">${remainText}</td></tr>
+      `}).join('');
+    } catch (e) {
+      document.getElementById('usersTable').innerHTML = '<tr><td colspan="4">加载失败</td></tr>';
+    }
+  }
+
+  // ---------- 生成校验码 ----------
+  document.getElementById('genBtn').addEventListener('click', async () => {
+    const count = parseInt(document.getElementById('genCount').value) || 10;
+    const type = document.querySelector('input[name="codeType"]:checked').value;
+    const btn = document.getElementById('genBtn');
+    btn.disabled = true;
+    btn.textContent = '生成中...';
+
+    try {
+      const res = await fetch('/api/admin/generate-codes', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Admin-Password': adminPw,
+        },
+        body: JSON.stringify({ count, type }),
+      });
+      const data = await res.json();
+
+      const grid = document.getElementById('codeGrid');
+      const typeLabel = data.type === 'year' ? '年卡' : '体验卡';
+      grid.innerHTML = `<div style="margin-bottom:6px;color:var(--muted);font-size:13px">已生成 ${data.count} 个${typeLabel}（${data.duration_days}天）</div>` +
+        data.codes.map(c =>
+          `<span class="code-chip" title="点击复制" onclick="copyCode('${c}')">${c}</span>`
+        ).join('');
+
+      document.getElementById('copyHint').style.display = 'block';
+      // 刷新统计和列表
+      await Promise.all([loadStats(), loadCodes()]);
+    } catch (e) {
+      alert('生成失败：' + e.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '生成';
+    }
+  });
+
+  // ---------- 复制校验码 ----------
+  window.copyCode = function(code) {
+    navigator.clipboard.writeText(code).then(() => {
+      const chips = document.querySelectorAll('.code-chip');
+      chips.forEach(c => { if (c.textContent === code) c.style.background = 'rgba(100,200,130,0.3)'; });
+      setTimeout(() => {
+        chips.forEach(c => { if (c.textContent === code) c.style.background = ''; });
+      }, 600);
+    }).catch(() => {});
+  };
+</script>
+</body>
+</html>
