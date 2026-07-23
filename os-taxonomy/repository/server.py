@@ -6,13 +6,14 @@ import json
 import os
 import random
 import secrets
+import shutil
 import sqlite3
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import jwt
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -180,6 +181,11 @@ class LoginRequest(BaseModel):
 class GenerateCodesRequest(BaseModel):
     count: int = 10
     type: str = "day"  # "day" 或 "year"
+
+
+class ResetPasswordRequest(BaseModel):
+    username: str
+    new_password: str
 
 
 # ---------- API 路由 ----------
@@ -426,6 +432,102 @@ def admin_list_users(request: Request):
         return {"total": len(users), "users": users}
     finally:
         db.close()
+
+
+@app.post("/api/admin/reset-password")
+def admin_reset_password(req: ResetPasswordRequest, request: Request):
+    """管理员重置用户密码"""
+    verify_admin(request)
+
+    username = req.username.strip()
+    new_password = req.new_password.strip()
+
+    if not username:
+        raise HTTPException(status_code=400, detail="请输入用户名")
+    if not new_password or len(new_password) < 6:
+        raise HTTPException(status_code=400, detail="新密码至少 6 位")
+
+    db = get_db()
+    try:
+        user = db.execute("SELECT id, username FROM users WHERE username = ?", (username,)).fetchone()
+        if not user:
+            raise HTTPException(status_code=404, detail="用户不存在")
+
+        pw_hash = hash_password(new_password)
+        db.execute("UPDATE users SET password_hash = ? WHERE id = ?", (pw_hash, user["id"]))
+        db.commit()
+        return {"message": f"用户「{user['username']}」的密码已重置"}
+    finally:
+        db.close()
+
+
+# ---------- 思维导图目录 ----------
+MINDMAP_DIR = WEB_DIR / "assets" / "mindmaps"
+MINDMAP_DIR.mkdir(parents=True, exist_ok=True)
+
+
+@app.get("/api/admin/topics")
+def admin_list_topics(request: Request):
+    """管理员获取所有知识点列表（用于上传思维导图选择）"""
+    verify_admin(request)
+    # 直接从 data-cn.js 读取（静态文件，前端注入为 window.CURRICULUM_DATA）
+    import re
+    data_path = WEB_DIR / "data-cn.js"
+    if not data_path.exists():
+        return {"topics": []}
+    with open(data_path, "r", encoding="utf-8") as f:
+        content = f.read()
+    # 提取 topics 数组中的 id 和 name
+    topics = []
+    for m in re.finditer(r'id\s*:\s*"([^"]+)".*?subject\s*:\s*"([^"]+)".*?grade\s*:\s*(\d+).*?name\s*:\s*"([^"]+)"', content):
+        topics.append({
+            "id": m.group(1),
+            "subject": m.group(2),
+            "grade": int(m.group(3)),
+            "name": m.group(4),
+        })
+    topics.sort(key=lambda t: (t["grade"], t["subject"], t["name"]))
+    return {"topics": topics}
+
+
+@app.post("/api/admin/upload-mindmap")
+async def admin_upload_mindmap(
+    request: Request,
+    topic_id: str = Form(...),
+    file: UploadFile = File(...),
+):
+    """管理员上传知识点思维导图图片"""
+    verify_admin(request)
+
+    # 校验文件类型
+    ext = os.path.splitext(file.filename or "")[1].lower()
+    if ext not in (".jpg", ".jpeg", ".png", ".webp"):
+        raise HTTPException(status_code=400, detail="仅支持 JPG、PNG、WebP 格式图片")
+    if file.size and file.size > 5 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="图片大小不能超过 5MB")
+
+    # 保存文件
+    save_path = MINDMAP_DIR / f"{topic_id}{ext}"
+    # 删除旧文件（可能有不同扩展名）
+    for old_ext in (".jpg", ".jpeg", ".png", ".webp"):
+        old_path = MINDMAP_DIR / f"{topic_id}{old_ext}"
+        if old_path.exists():
+            old_path.unlink()
+
+    with open(save_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    return {"message": "上传成功", "path": f"/assets/mindmaps/{topic_id}{ext}"}
+
+
+@app.get("/api/mindmap/{topic_id}")
+def get_mindmap(topic_id: str):
+    """检查知识点是否有思维导图"""
+    for ext in (".jpg", ".jpeg", ".png", ".webp"):
+        path = MINDMAP_DIR / f"{topic_id}{ext}"
+        if path.exists():
+            return {"exists": True, "path": f"/assets/mindmaps/{topic_id}{ext}"}
+    return {"exists": False, "path": None}
 
 
 # ---------- 静态文件服务 ----------

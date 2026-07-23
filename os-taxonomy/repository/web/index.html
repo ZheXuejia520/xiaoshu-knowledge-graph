@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="中国小学一至六年级交互式课程知识图谱" />
     <title>小数探客 · 知识宇宙</title>
-    <link rel="stylesheet" href="styles.css?v=14" />
+    <link rel="stylesheet" href="styles.css?v=18" />
   </head>
   <body>
     <!-- 登录检测 -->
@@ -113,6 +113,15 @@
           </div>
 
           <div id="tooltip" class="node-tooltip" hidden></div>
+
+          <footer class="site-footer">
+            <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener">辽ICP备2026015252号</a>
+            <span class="footer-divider"></span>
+            <a href="https://www.beian.gov.cn/portal/registerSystemInfo?recordcode=21011202001337" target="_blank" rel="noopener">
+              <svg class="police-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2s-2.5 1.5-4 1.5V7c0 3.5 2 6.5 4 8 2-1.5 4-4.5 4-8V3.5c-1.5 0-4-1.5-4-1.5z"/></svg>
+              辽公网安备21011202001337号
+            </a>
+          </footer>
         </section>
 
         <aside id="detailPanel" class="detail-panel" aria-label="知识点详情">
@@ -125,6 +134,10 @@
             <h2>选择一个知识点</h2>
             <p>点击图中的任意节点，查看它的学习目标、前置基础和接下来会解锁的内容。</p>
             <div class="detail-tip"><span>小提示</span>颜色代表学科，高度代表年级。</div>
+            <div class="scroll-hint" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="m18 10-6 6-6-6"/></svg>
+              <span>点击节点后，下滑查看更多</span>
+            </div>
           </div>
 
           <div id="nodeDetail" class="node-detail" hidden>
@@ -201,7 +214,11 @@
       </main>
     </div>
 
-    <script src="data-cn.js?v=8"></script>
-    <script src="app.js?v=20"></script>
+    <div id="lightbox" class="lightbox" hidden>
+      <button class="lightbox-close" aria-label="关闭">×</button>
+      <img id="lightboxImg" src="" alt="思维导图大图" />
+    </div>
+    <script src="data-cn.js?v=9"></script>
+    <script src="app.js?v=21"></script>
   </body>
 </html>

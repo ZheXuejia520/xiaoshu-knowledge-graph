@@ -1264,7 +1264,29 @@
         <span class="info-label">${item.label}</span>
         <span class="info-value">${item.value}</span>
       </div>
-    `).join("");
+    `).join("") + '<div class="mindmap-wrap" id="mindmapWrap" style="display:none"><div class="mindmap-label">思维导图</div><img id="mindmapImg" src="" alt="知识点思维导图" /></div>';
+
+    // 异步加载思维导图
+    fetch('/api/mindmap/' + encodeURIComponent(topic.id))
+      .then(r => r.json())
+      .then(data => {
+        if (data.exists) {
+          const wrap = document.querySelector('#mindmapWrap');
+          const img = document.querySelector('#mindmapImg');
+          if (wrap && img) {
+            img.src = data.path;
+            wrap.style.display = 'block';
+            // 点击放大
+            img.onclick = () => {
+              const lb = document.querySelector('#lightbox');
+              const lbImg = document.querySelector('#lightboxImg');
+              lbImg.src = data.path;
+              lb.hidden = false;
+            };
+          }
+        }
+      })
+      .catch(() => {});
 
     // 2. 图谱逻辑链路
     const related = getRelated(topic.id);
@@ -1598,4 +1620,14 @@
     requestAnimationFrame(animate);
   }
   animate();
+
+  // 灯箱关闭
+  const lightbox = document.querySelector('#lightbox');
+  const lightboxClose = document.querySelector('.lightbox-close');
+  if (lightbox && lightboxClose) {
+    lightboxClose.addEventListener('click', () => { lightbox.hidden = true; });
+    lightbox.addEventListener('click', (e) => {
+      if (e.target === lightbox) lightbox.hidden = true;
+    });
+  }
 })();

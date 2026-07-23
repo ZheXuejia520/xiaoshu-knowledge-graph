@@ -221,6 +221,42 @@
       </table>
     </div>
   </div>
+
+  <!-- 重置密码 -->
+  <div class="card">
+    <h3>重置用户密码</h3>
+    <div class="gen-row" style="margin-bottom:10px">
+      <span>用户名：</span>
+      <input id="resetUser" type="text" placeholder="输入用户名" style="width:160px;text-align:left;padding:8px 10px" />
+    </div>
+    <div class="gen-row" style="margin-bottom:10px">
+      <span>新密码：</span>
+      <input id="resetPass" type="text" placeholder="至少 6 位" style="width:160px;text-align:left;padding:8px 10px" />
+    </div>
+    <button class="btn primary" id="resetBtn">重置密码</button>
+    <span id="resetMsg" style="font-size:13px;margin-left:12px"></span>
+  </div>
+
+  <!-- 上传思维导图 -->
+  <div class="card">
+    <h3>上传知识点思维导图</h3>
+    <div class="gen-row" style="margin-bottom:10px">
+      <span>知识点：</span>
+      <select id="mindmapTopic" style="max-width:300px;padding:8px 10px;background:rgba(20,30,55,0.7);border:1px solid rgba(100,130,200,0.2);border-radius:8px;color:var(--ink);font-size:14px">
+        <option value="">请选择知识点</option>
+      </select>
+    </div>
+    <div class="gen-row" style="margin-bottom:10px">
+      <span>图片：</span>
+      <input id="mindmapFile" type="file" accept="image/jpeg,image/png,image/webp" style="color:var(--muted);font-size:13px" />
+    </div>
+    <button class="btn primary" id="uploadMindmapBtn">上传</button>
+    <span id="uploadMindmapMsg" style="font-size:13px;margin-left:12px"></span>
+    <div id="mindmapPreview" style="display:none;margin-top:12px">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:4px">当前图片（重新上传将覆盖）：</div>
+      <img id="mindmapPreviewImg" src="" style="max-width:300px;max-height:160px;border-radius:6px;border:1px solid rgba(100,130,180,0.15)" alt="预览" />
+    </div>
+  </div>
 </div>
 
 <script>
@@ -391,6 +427,134 @@
       }, 600);
     }).catch(() => {});
   };
+
+  // ---------- 重置密码 ----------
+  document.getElementById('resetBtn').addEventListener('click', async () => {
+    const username = document.getElementById('resetUser').value.trim();
+    const newPassword = document.getElementById('resetPass').value.trim();
+    const msg = document.getElementById('resetMsg');
+
+    if (!username) { msg.textContent = '请输入用户名'; msg.style.color = 'var(--red)'; return; }
+    if (!newPassword || newPassword.length < 6) { msg.textContent = '新密码至少 6 位'; msg.style.color = 'var(--red)'; return; }
+
+    const btn = document.getElementById('resetBtn');
+    btn.disabled = true;
+    btn.textContent = '重置中...';
+
+    try {
+      const res = await fetch('/api/admin/reset-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Admin-Password': adminPw,
+        },
+        body: JSON.stringify({ username, new_password: newPassword }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        msg.textContent = data.message;
+        msg.style.color = 'var(--green)';
+        document.getElementById('resetUser').value = '';
+        document.getElementById('resetPass').value = '';
+      } else {
+        msg.textContent = data.detail || '重置失败';
+        msg.style.color = 'var(--red)';
+      }
+    } catch (e) {
+      msg.textContent = '网络错误';
+      msg.style.color = 'var(--red)';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '重置密码';
+    }
+  });
+
+  // ---------- 加载知识点列表 ----------
+  async function loadTopicsForMindmap() {
+    try {
+      const res = await fetch('/api/admin/topics', { headers: { 'X-Admin-Password': adminPw } });
+      const data = await res.json();
+      const select = document.getElementById('mindmapTopic');
+      data.topics.forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = t.id;
+        opt.textContent = `[${t.grade}年级·${t.subject}] ${t.name}`;
+        select.appendChild(opt);
+      });
+    } catch (e) {
+      console.error('加载知识点列表失败', e);
+    }
+  }
+
+  // 页面加载时加载知识点列表
+  if (adminPw) {
+    loadTopicsForMindmap();
+  }
+
+  // ---------- 上传思维导图 ----------
+  // 选择知识点时预览当前图片
+  document.getElementById('mindmapTopic').addEventListener('change', async () => {
+    const topicId = document.getElementById('mindmapTopic').value;
+    const preview = document.getElementById('mindmapPreview');
+    const previewImg = document.getElementById('mindmapPreviewImg');
+    if (!topicId) { preview.style.display = 'none'; return; }
+    try {
+      const res = await fetch('/api/mindmap/' + encodeURIComponent(topicId));
+      const data = await res.json();
+      if (data.exists) {
+        previewImg.src = data.path;
+        preview.style.display = 'block';
+      } else {
+        preview.style.display = 'none';
+      }
+    } catch (e) { preview.style.display = 'none'; }
+  });
+
+  document.getElementById('uploadMindmapBtn').addEventListener('click', async () => {
+    const topicId = document.getElementById('mindmapTopic').value;
+    const fileInput = document.getElementById('mindmapFile');
+    const file = fileInput.files[0];
+    const msg = document.getElementById('uploadMindmapMsg');
+
+    if (!topicId) { msg.textContent = '请选择知识点'; msg.style.color = 'var(--red)'; return; }
+    if (!file) { msg.textContent = '请选择图片文件'; msg.style.color = 'var(--red)'; return; }
+
+    const btn = document.getElementById('uploadMindmapBtn');
+    btn.disabled = true;
+    btn.textContent = '上传中...';
+
+    try {
+      const formData = new FormData();
+      formData.append('topic_id', topicId);
+      formData.append('file', file);
+
+      const res = await fetch('/api/admin/upload-mindmap', {
+        method: 'POST',
+        headers: { 'X-Admin-Password': adminPw },
+        body: formData,
+      });
+      const data = await res.json();
+      if (res.ok) {
+        msg.textContent = data.message;
+        msg.style.color = 'var(--green)';
+        fileInput.value = '';
+        // 刷新预览
+        const preview = document.getElementById('mindmapPreview');
+        const previewImg = document.getElementById('mindmapPreviewImg');
+        previewImg.src = data.path + '?t=' + Date.now();
+        preview.style.display = 'block';
+      } else {
+        msg.textContent = data.detail || '上传失败';
+        msg.style.color = 'var(--red)';
+      }
+    } catch (e) {
+      msg.textContent = '网络错误';
+      msg.style.color = 'var(--red)';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '上传';
+    }
+  });
 </script>
 </body>
 </html>
